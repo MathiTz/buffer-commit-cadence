@@ -1,8 +1,10 @@
-import { DAYS, STATUS_LABEL, TAGS, summary, type Channel, type Post } from "@cadence/core";
+import { STATUS_LABEL, TAGS, summary, type Channel, type Day, type Post } from "@cadence/core";
 import { ChannelBadge } from "./icons";
 import { btnPrimary, STATUS_COLOR } from "./style";
 
 interface Props {
+  days: Day[];
+  readOnly: boolean; // real Buffer data: nothing to approve here yet, so the action is always "Open"
   title: string;
   posts: Post[];
   channels: Channel[];
@@ -15,7 +17,7 @@ interface Props {
 
 const COLS = "grid grid-cols-[60px_52px_104px_96px_minmax(0,1fr)_96px_84px] gap-3 px-3.5";
 
-export function PostsTable({ title, posts, channels, scope, reviewOnly, onScope, onOpen, onSeeGaps }: Props) {
+export function PostsTable({ days, readOnly, title, posts, channels, scope, reviewOnly, onScope, onOpen, onSeeGaps }: Props) {
   const channelOf = (p: Post) => channels.find((c) => c.id === p.channel)!;
   const seg = (active: boolean) => `border-0 px-3 py-[5px] text-xs font-medium text-[#2B2A28] ${active ? "bg-[#EDECE9]" : "bg-white"}`;
 
@@ -43,12 +45,12 @@ export function PostsTable({ title, posts, channels, scope, reviewOnly, onScope,
 
           {posts.map((p) => {
             const ch = channelOf(p);
-            const draft = p.status === "draft";
+            const draft = p.status === "draft" && !readOnly;
             return (
               <div key={p.id} role="row" className={`${COLS} h-10 items-center border-b border-[#F1F0EE] last:border-b-0`}>
-                <div role="cell" className="text-[#6B6965]">{DAYS[p.day]!.name} {DAYS[p.day]!.date}</div>
+                <div role="cell" className="text-[#6B6965]">{days[p.day]!.name} {days[p.day]!.date}</div>
                 <div role="cell">{p.time}</div>
-                <div role="cell" className="flex items-center gap-2"><ChannelBadge id={ch.id} badge={ch.badge} />{ch.name}</div>
+                <div role="cell" className="flex items-center gap-2"><ChannelBadge channel={ch} />{ch.name}</div>
                 <div role="cell" className="flex items-center gap-1.5">
                   <span className="block size-2 rounded-full" style={{ background: TAGS[p.tag].color }} />{TAGS[p.tag].name}
                 </div>

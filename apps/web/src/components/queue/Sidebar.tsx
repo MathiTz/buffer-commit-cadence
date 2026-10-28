@@ -1,4 +1,4 @@
-import { SAMPLE_API_USAGE, TAGS, TAG_ORDER, type Channel, type ChannelId, type Post } from "@cadence/core";
+import { TAGS, TAG_ORDER, type Channel, type Post, type QueueData } from "@cadence/core";
 import { CadenceMark, ChannelBadge, IconSidebar } from "./icons";
 import { iconBtn } from "./style";
 
@@ -6,15 +6,17 @@ interface Props {
   open: boolean;
   onToggle: () => void;
   channels: Channel[];
-  hidden: Partial<Record<ChannelId, boolean>>;
-  onToggleChannel: (id: ChannelId) => void;
+  hidden: Record<string, boolean>;
+  onToggleChannel: (id: string) => void;
   posts: Post[]; // all posts, for per-channel counts
   visiblePosts: Post[]; // posts of visible channels, for per-tag counts
+  usage: QueueData["usage"];
+  live: boolean;
 }
 
-export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, posts, visiblePosts }: Props) {
-  const { used, limit } = SAMPLE_API_USAGE;
+export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, posts, visiblePosts, usage, live }: Props) {
   const justify = open ? "justify-between" : "justify-center";
+  const tags = TAG_ORDER.map((tag) => ({ tag, n: visiblePosts.filter((p) => p.tag === tag).length })).filter((t) => t.tag !== "untagged" || t.n > 0);
 
   return (
     <aside
@@ -55,52 +57,61 @@ export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, pos
                 className={`flex items-center rounded-md px-2 py-1.5 text-left text-[13px] ${justify} ${on ? "bg-[#EDECE9]" : "bg-transparent"}`}
               >
                 <span className="flex items-center gap-2" style={{ opacity: on ? 1 : 0.45 }}>
-                  <ChannelBadge id={ch.id} badge={ch.badge} />
+                  <ChannelBadge channel={ch} />
                   {open && <span>{ch.name}</span>}
                 </span>
                 {open && <span className="text-[#6B6965]">{n}</span>}
               </button>
             );
           })}
-          <button
-            type="button"
-            aria-label="Connect a channel"
-            title="Connect a channel"
+          <a
+            href="https://publish.buffer.com"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Connect a channel in Buffer"
+            title="Connect a channel in Buffer"
             className={`mt-1 flex items-center gap-2 rounded-md border border-dashed border-[#CBC9C5] px-2 py-1.5 text-[13px] text-[#6B6965] ${justify}`}
           >
             +{open && <span>Connect a channel</span>}
-          </button>
+          </a>
         </div>
       </div>
 
       <div>
         {open && <div className="px-2.5 pb-1.5 text-[11px] font-medium text-[#6B6965]">Tags</div>}
         <div className="flex flex-col gap-0.5">
-          {TAG_ORDER.map((tag) => (
+          {tags.map(({ tag, n }) => (
             <div key={tag} title={TAGS[tag].name} className={`flex items-center px-2 py-[5px] ${justify}`}>
               <span className="flex items-center gap-2">
                 <span className="block size-2 rounded-full" style={{ background: TAGS[tag].color }} />
                 {open && <span>{TAGS[tag].name}</span>}
               </span>
-              {open && <span className="text-[#6B6965]">{visiblePosts.filter((p) => p.tag === tag).length}</span>}
+              {open && <span className="text-[#6B6965]">{n}</span>}
             </div>
           ))}
         </div>
       </div>
 
       <div className="mt-auto px-1.5">
+        {usage && (
+          <>
+            {open && (
+              <div className="mb-1.5 flex justify-between text-xs text-[#6B6965]">
+                <span>API requests, {usage.window}</span>
+                <span>{usage.used} / {usage.limit}</span>
+              </div>
+            )}
+            <div title={`API requests ${usage.window}: ${usage.used} of ${usage.limit}`} className="h-1 rounded-sm bg-[#EBEAE8]">
+              <div className="h-1 rounded-sm bg-[#5DB86F]" style={{ width: `${Math.min(100, (usage.used / usage.limit) * 100)}%` }} />
+            </div>
+          </>
+        )}
         {open && (
-          <div className="mb-1.5 flex justify-between text-xs text-[#6B6965]">
-            <span>API requests today</span>
-            <span>{used} / {limit}</span>
+          <div className="mt-3 flex items-center justify-between text-xs text-[#6B6965]">
+            <a href={live ? "/queue?sample=1" : "/queue"} className="hover:underline">{live ? "View sample data" : "Use my Buffer data"}</a>
+            <form action="/api/auth/logout" method="post"><button className="hover:underline">Sign out</button></form>
           </div>
         )}
-        <div title={`API requests today: ${used} of ${limit}`} className="h-1 rounded-sm bg-[#EBEAE8]">
-          <div className="h-1 rounded-sm bg-[#5DB86F]" style={{ width: `${(used / limit) * 100}%` }} />
-        </div>
-        <form action="/api/auth/logout" method="post" className="mt-3">
-          <button className="text-xs text-[#6B6965] hover:underline">{open ? "Sign out" : "Out"}</button>
-        </form>
       </div>
     </aside>
   );

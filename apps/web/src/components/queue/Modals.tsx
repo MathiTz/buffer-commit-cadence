@@ -2,8 +2,8 @@
 
 import { useEffect, type ReactNode } from "react";
 import {
-  DAYS, STATUS_LABEL, TAGS, isOffTarget, longestParagraph,
-  type BalanceRow, type Channel, type GapDef, type Idea, type Post,
+  STATUS_LABEL, TAGS, isOffTarget, longestParagraph,
+  type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post,
 } from "@cadence/core";
 import { ChannelBadge, IconClose } from "./icons";
 import { btn, btnPrimary, iconBtn, PILL } from "./style";
@@ -39,6 +39,8 @@ function Header({ onClose, children }: { onClose: () => void; children: ReactNod
 
 interface EventProps {
   post: Post;
+  day: Day;
+  readOnly: boolean;
   channel: Channel;
   text: string;
   onEdit: (text: string) => void;
@@ -47,8 +49,8 @@ interface EventProps {
   onClose: () => void;
 }
 
-export function EventModal({ post, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
-  const draft = post.status === "draft";
+export function EventModal({ post, day, readOnly, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
+  const draft = post.status === "draft" && !readOnly;
   const pill = PILL[post.status];
   const paragraphs = text.split("\n\n");
   const longest = longestParagraph(text);
@@ -56,13 +58,13 @@ export function EventModal({ post, channel, text, onEdit, onApprove, onSkip, onC
   return (
     <Overlay label="Post details" onClose={onClose}>
       <Header onClose={onClose}>
-        <ChannelBadge id={channel.id} badge={channel.badge} size={24} />
+        <ChannelBadge channel={channel} size={24} />
         {channel.name}
         <span className="rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: pill.bg, color: pill.fg }}>{STATUS_LABEL[post.status]}</span>
       </Header>
       <div className="flex flex-col gap-3 px-[18px] py-4">
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[#6B6965]">
-          <span>{DAYS[post.day]!.full} at {post.time}</span>
+          <span>{day.full} at {post.time}</span>
           <span className="flex items-center gap-1.5">
             <span className="block size-2 rounded-full" style={{ background: TAGS[post.tag].color }} />{TAGS[post.tag].name}
           </span>
@@ -85,6 +87,9 @@ export function EventModal({ post, channel, text, onEdit, onApprove, onSkip, onC
         ) : (
           <p className="m-0 whitespace-pre-line text-sm leading-normal">{text}</p>
         )}
+        {readOnly && post.status === "draft" && (
+          <div className="text-xs text-[#6B6965]">This post needs approval in Buffer. Approving from here comes with write access.</div>
+        )}
         {post.status === "error" && (
           <div className="text-xs text-[#B3261E]">Buffer couldn&apos;t publish this post. Check the channel connection, then try again.</div>
         )}
@@ -98,7 +103,7 @@ export function EventModal({ post, channel, text, onEdit, onApprove, onSkip, onC
         ) : (
           <>
             <button type="button" onClick={onClose} className={`${btn} h-auto px-3.5 py-[7px]`}>Close</button>
-            <button type="button" className={`${btnPrimary} px-4 py-[7px] text-[13px]`}>Open in Buffer</button>
+            <a href="https://publish.buffer.com" target="_blank" rel="noreferrer" className={`${btnPrimary} px-4 py-[7px] text-[13px]`}>Open in Buffer</a>
           </>
         )}
       </div>
@@ -107,6 +112,7 @@ export function EventModal({ post, channel, text, onEdit, onApprove, onSkip, onC
 }
 
 interface GapsProps {
+  canAct: boolean;
   gaps: GapDef[];
   ideas: Idea[];
   ideasOpen: boolean;
@@ -117,7 +123,7 @@ interface GapsProps {
   onClose: () => void;
 }
 
-export function GapsModal({ gaps, ideas, ideasOpen, fillLabel, onToggleIdeas, onDismiss, onUseIdea, onClose }: GapsProps) {
+export function GapsModal({ canAct, gaps, ideas, ideasOpen, fillLabel, onToggleIdeas, onDismiss, onUseIdea, onClose }: GapsProps) {
   return (
     <Overlay label="Gaps" onClose={onClose}>
       <Header onClose={onClose}>
@@ -132,13 +138,13 @@ export function GapsModal({ gaps, ideas, ideasOpen, fillLabel, onToggleIdeas, on
             <div className="font-medium">{g.title}</div>
             <div className="mb-2.5 mt-0.5 text-[#6B6965]">{g.why}</div>
             <div className="flex flex-wrap gap-1.5">
-              {g.canFill && (
+              {canAct && g.canFill && (
                 <button type="button" onClick={onToggleIdeas} aria-expanded={ideasOpen} className={`${btnPrimary} px-3 py-[5px] text-xs`}>Fill from ideas</button>
               )}
-              {g.canSpread && <button type="button" className={`${btnPrimary} px-3 py-[5px] text-xs`}>Spread across the week</button>}
+              {canAct && g.canSpread && <button type="button" className={`${btnPrimary} px-3 py-[5px] text-xs`}>Spread across the week</button>}
               <button type="button" onClick={() => onDismiss(g.id)} className={`${btn} h-auto px-3 py-[5px] text-xs`}>Dismiss</button>
             </div>
-            {g.canFill && ideasOpen && (
+            {canAct && g.canFill && ideasOpen && (
               <div className="mt-2.5 rounded-lg border border-[#EBEAE8]">
                 {ideas.map((i) => (
                   <div key={i.id} className="flex items-center justify-between gap-2.5 border-b border-[#F1F0EE] px-2.5 py-2 last:border-b-0">
@@ -152,6 +158,9 @@ export function GapsModal({ gaps, ideas, ideasOpen, fillLabel, onToggleIdeas, on
             )}
           </div>
         ))}
+        {!canAct && gaps.length > 0 && (
+          <div className="text-xs text-[#6B6965]">Filling a gap adds posts to your Buffer queue, which comes with write access. For now these are read-only.</div>
+        )}
         {gaps.length === 0 && <div className="text-[#6B6965]">No gaps left. Your week looks full.</div>}
       </div>
     </Overlay>

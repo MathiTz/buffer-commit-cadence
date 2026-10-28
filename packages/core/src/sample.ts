@@ -1,26 +1,22 @@
-import type { Channel, Day, GapDef, Idea, Post, PostStatus, Tag } from "./queue";
+import type { Channel, Day, GapDef, Idea, Post, PostStatus, QueueData, Tag } from "./queue";
+import { buildDays } from "./week";
 
 // Sample week shown until real data is connected. Labeled "Sample data" in the UI.
-export const SAMPLE_WEEK_LABEL = "Nov 2 – 8";
-export const SAMPLE_DEFAULT_DAY = 4;
+const SAMPLE_WEEK_LABEL = "Nov 2 – 8";
+const SAMPLE_DEFAULT_DAY = 4;
 
-export const DAYS: Day[] = [
-  { name: "Mon", date: 2, full: "Monday, Nov 2" },
-  { name: "Tue", date: 3, full: "Tuesday, Nov 3" },
-  { name: "Wed", date: 4, full: "Wednesday, Nov 4" },
-  { name: "Thu", date: 5, full: "Thursday, Nov 5" },
-  { name: "Fri", date: 6, full: "Friday, Nov 6" },
-  { name: "Sat", date: 7, full: "Saturday, Nov 7" },
-  { name: "Sun", date: 8, full: "Sunday, Nov 8" },
+export const SAMPLE_DAYS: Day[] = buildDays("2026-11-02");
+
+const channel = (id: string, name: string, handle: string, badge: string, charLimit: number): Channel => ({
+  id, service: id, name, handle, badge, charLimit, schedule: [], paused: false,
+});
+export const SAMPLE_CHANNELS: Channel[] = [
+  channel("x", "X", "@acme", "#12161C", 280),
+  channel("linkedin", "LinkedIn", "matheus-alves789", "#0A66C2", 3000),
+  channel("bluesky", "Bluesky", "acme.bsky.social", "#1185FE", 300),
 ];
 
-export const CHANNELS: Channel[] = [
-  { id: "x", name: "X", handle: "@acme", badge: "#12161C", charLimit: 280 },
-  { id: "linkedin", name: "LinkedIn", handle: "matheus-alves789", badge: "#0A66C2", charLimit: 3000 },
-  { id: "bluesky", name: "Bluesky", handle: "acme.bsky.social", badge: "#1185FE", charLimit: 300 },
-];
-
-const P = (day: number, channel: Post["channel"], tag: Tag, time: string, full: string, status: PostStatus = "scheduled"): Omit<Post, "id"> => ({
+const P = (day: number, channel: string, tag: Tag, time: string, full: string, status: PostStatus = "scheduled"): Omit<Post, "id"> => ({
   day, channel, tag, time, full, status, kind: "",
 });
 
@@ -77,4 +73,20 @@ export const SAMPLE_GAPS: GapDef[] = [
   { id: "g2", title: "Thursday is crowded", why: "Thursday has 7 posts, the most of any day.", canFill: false, canSpread: true },
 ];
 
-export const SAMPLE_API_USAGE = { used: 34, limit: 250 };
+
+export function sampleQueueData(): QueueData {
+  return {
+    live: false,
+    days: SAMPLE_DAYS,
+    weekLabel: SAMPLE_WEEK_LABEL,
+    selectedDay: SAMPLE_DEFAULT_DAY,
+    channels: SAMPLE_CHANNELS,
+    posts: SAMPLE_POSTS,
+    drafts: SAMPLE_DRAFTS,
+    ideas: SAMPLE_IDEAS,
+    gaps: SAMPLE_GAPS,
+    usage: { used: 34, limit: 250, window: "today" },
+    hasMore: false,
+    nav: {},
+  };
+}

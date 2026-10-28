@@ -1,8 +1,9 @@
-import { DAYS, TAGS, type Channel, type Post } from "@cadence/core";
+import { TAGS, type Channel, type Day, type Post } from "@cadence/core";
 import { ChannelBadge } from "./icons";
 import { dotStyle } from "./style";
 
 interface Props {
+  days: Day[];
   channels: Channel[]; // visible channels only
   posts: Post[]; // posts of visible channels
   selectedDay: number | null; // null while the table shows "needs review"
@@ -14,14 +15,14 @@ const MAX_DOTS = 6;
 
 const plural = (n: number) => (n === 1 ? "1 post" : `${n} posts`);
 
-export function Calendar({ channels, posts, selectedDay, onPickDay }: Props) {
+export function Calendar({ days, channels, posts, selectedDay, onPickDay }: Props) {
   return (
     <section aria-label="Week calendar">
       <div className="overflow-x-auto">
         <div className="min-w-[660px] overflow-hidden rounded-[10px] border border-[#EBEAE8]">
           <div className={`${GRID} border-b border-[#EBEAE8] bg-[#FAFAF9]`}>
             <div />
-            {DAYS.map((d, i) => {
+            {days.map((d, i) => {
               const n = posts.filter((p) => p.day === i).length;
               const selected = i === selectedDay;
               return (
@@ -45,13 +46,13 @@ export function Calendar({ channels, posts, selectedDay, onPickDay }: Props) {
           {channels.map((ch) => (
             <div key={ch.id} className={`${GRID} border-b border-[#EBEAE8] last:border-b-0`}>
               <div title={`${ch.name} · ${ch.handle}`} className="flex min-w-0 items-center gap-2.5 px-3">
-                <ChannelBadge id={ch.id} badge={ch.badge} size={26} />
+                <ChannelBadge channel={ch} size={26} />
                 <span className="flex min-w-0 flex-col leading-[1.35]">
                   <span className="truncate font-medium">{ch.name}</span>
                   <span className="truncate text-[11px] text-[#6B6965]">{ch.handle}</span>
                 </span>
               </div>
-              {DAYS.map((d, di) => {
+              {days.map((d, di) => {
                 const here = posts.filter((p) => p.day === di && p.channel === ch.id);
                 return (
                   <button

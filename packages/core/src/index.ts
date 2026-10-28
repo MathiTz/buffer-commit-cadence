@@ -1,3 +1,5 @@
-// Pure product logic (gaps, tag balance, sample data). No I/O, no Buffer calls.
+// Pure product logic (gaps, tag balance, week math, sample data). No I/O, no Buffer calls.
 export * from "./queue";
+export * from "./week";
+export * from "./gaps";
 export * from "./sample";

@@ -1,10 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import {
-  CHANNELS, DAYS, SAMPLE_DEFAULT_DAY, SAMPLE_DRAFTS, SAMPLE_GAPS, SAMPLE_IDEAS, SAMPLE_POSTS, SAMPLE_WEEK_LABEL,
-  tagBalance, type ChannelId, type Idea, type Post,
-} from "@cadence/core";
+import { tagBalance, type Idea, type Post, type QueueData } from "@cadence/core";
 import { Calendar } from "./Calendar";
 import { BalanceModal, EventModal, GapsModal } from "./Modals";
 import { IconBars, IconInfo, IconNext, IconPrev } from "./icons";
@@ -16,13 +14,20 @@ type Modal = { type: "event"; id: string } | { type: "gaps" } | { type: "balance
 type Review = "approved" | "skipped";
 
 const chip = "flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium text-[#2B2A28]";
+const noun = (n: number) => (n === 1 ? "post" : "posts");
 
-export function Queue() {
-  const [day, setDay] = useState(SAMPLE_DEFAULT_DAY);
+function NavLink({ href, label, children, className }: { href?: string; label?: string; children: React.ReactNode; className: string }) {
+  if (!href) return <button type="button" disabled aria-label={label} className={`${className} opacity-40`}>{children}</button>;
+  return <Link href={href} aria-label={label} className={`${className} inline-flex items-center justify-center`}>{children}</Link>;
+}
+
+export function Queue({ data }: { data: QueueData }) {
+  const { days, live } = data;
+  const [day, setDay] = useState(data.selectedDay);
   const [scope, setScope] = useState<"day" | "week">("day");
   const [reviewOnly, setReviewOnly] = useState(false);
   const [sideOpen, setSideOpen] = useState(true);
-  const [hidden, setHidden] = useState<Partial<Record<ChannelId, boolean>>>({});
+  const [hidden, setHidden] = useState<Record<string, boolean>>({});
   const [modal, setModal] = useState<Modal>(null);
   const [reviews, setReviews] = useState<Record<string, Review>>({});
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -30,19 +35,15 @@ export function Queue() {
   const [extra, setExtra] = useState<Post[]>([]);
   const [ideasOpen, setIdeasOpen] = useState(false);
 
-  // Drafts: skipped ones leave the list, approved ones become scheduled, edits replace the text.
-  const drafts = [...SAMPLE_DRAFTS, ...extra]
+  // Sample drafts: skipped ones leave the list, approved ones become scheduled, edits replace the text.
+  const drafts = [...data.drafts, ...extra]
     .filter((d) => reviews[d.id] !== "skipped")
-    .map((d) => ({
-      ...d,
-      full: edits[d.id] ?? d.full,
-      status: reviews[d.id] === "approved" ? ("scheduled" as const) : d.status,
-    }));
-  const allPosts = [...SAMPLE_POSTS, ...drafts];
+    .map((d) => ({ ...d, full: edits[d.id] ?? d.full, status: reviews[d.id] === "approved" ? ("scheduled" as const) : d.status }));
+  const allPosts = [...data.posts, ...drafts];
   const posts = allPosts.filter((p) => !hidden[p.channel]);
-  const channels = CHANNELS.filter((c) => !hidden[c.id]);
+  const channels = data.channels.filter((c) => !hidden[c.id]);
   const pending = allPosts.filter((p) => p.status === "draft").length;
-  const gaps = SAMPLE_GAPS.filter((g) => !dismissed[g.id]);
+  const gaps = data.gaps.filter((g) => !dismissed[g.id]);
 
   let list: Post[];
   if (reviewOnly) list = posts.filter((p) => p.status === "draft");
@@ -51,34 +52,36 @@ export function Queue() {
   list = [...list].sort((a, b) => a.day - b.day || a.time.localeCompare(b.time));
 
   const dayCount = posts.filter((p) => p.day === day).length;
-  const noun = (n: number) => (n === 1 ? "post" : "posts");
   const tableTitle = reviewOnly
     ? `Needs review · ${list.length} ${noun(list.length)}`
     : scope === "day"
-      ? `${DAYS[day]!.full} · ${dayCount} ${noun(dayCount)}`
-      : `Whole week · ${posts.length} posts`;
+      ? `${days[day]!.full} · ${dayCount} ${noun(dayCount)}`
+      : `Whole week · ${posts.length} ${noun(posts.length)}`;
 
   const close = () => setModal(null);
   const pickDay = (d: number) => { setDay(d); setReviewOnly(false); };
   const review = (id: string, outcome: Review) => { setReviews((r) => ({ ...r, [id]: outcome })); close(); };
   const useIdea = (idea: Idea) => {
-    // An idea becomes a draft for the open LinkedIn slot, so it still goes through review.
+    // Sample only: an idea becomes a draft for the open LinkedIn slot, so it still goes through review.
     setExtra((e) => [...e, { id: `e${e.length + 1}`, day: 1, channel: "linkedin", tag: idea.tag, time: "17:12", status: "draft", kind: "From your Ideas", full: idea.title }]);
     setDay(1); setScope("day"); setReviewOnly(false); setIdeasOpen(false); close();
   };
 
   const open = modal?.type === "event" ? allPosts.find((p) => p.id === modal.id) : undefined;
+  const openChannel = open && data.channels.find((c) => c.id === open.channel);
 
   return (
     <div className="flex min-h-screen flex-wrap bg-white text-[13px] text-[#2B2A28] tabular-nums">
       <Sidebar
         open={sideOpen}
         onToggle={() => setSideOpen((o) => !o)}
-        channels={CHANNELS}
+        channels={data.channels}
         hidden={hidden}
         onToggleChannel={(id) => setHidden((h) => ({ ...h, [id]: !h[id] }))}
         posts={allPosts}
         visiblePosts={posts}
+        usage={data.usage}
+        live={live}
       />
 
       <main className="min-w-0 px-7 pb-10" style={{ flex: "999 1 680px" }}>
@@ -86,14 +89,14 @@ export function Queue() {
           <div className="flex flex-wrap items-baseline gap-2.5">
             <h1 className="m-0 text-lg font-semibold">Queue</h1>
             <span className="text-[#6B6965]">
-              {SAMPLE_WEEK_LABEL} · {posts.length} posts{pending ? ` · ${pending} to review` : ""}
+              {data.weekLabel} · {posts.length} {noun(posts.length)}{pending ? ` · ${pending} to review` : ""}
             </span>
-            <span className="rounded-full bg-[#EDECE9] px-2 py-0.5 text-[11px] font-medium text-[#6B6965]">Sample data</span>
+            {!live && <span className="rounded-full bg-[#EDECE9] px-2 py-0.5 text-[11px] font-medium text-[#6B6965]">Sample data</span>}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <button type="button" aria-label="Previous week" className={iconBtn}><IconPrev /></button>
-            <button type="button" className={btn}>Today</button>
-            <button type="button" aria-label="Next week" className={iconBtn}><IconNext /></button>
+            <NavLink href={data.nav.prev} label="Previous week" className={iconBtn}><IconPrev /></NavLink>
+            <NavLink href={data.nav.today} className={btn}>Today</NavLink>
+            <NavLink href={data.nav.next} label="Next week" className={iconBtn}><IconNext /></NavLink>
             <button type="button" className={`${btn} ml-1.5`}>From GitHub</button>
             <button type="button" className={`${btnPrimary} h-7 px-3 text-[13px]`}>New post</button>
           </div>
@@ -119,12 +122,22 @@ export function Queue() {
             </button>
           </div>
 
-          <Calendar channels={channels} posts={posts} selectedDay={reviewOnly ? null : day} onPickDay={pickDay} />
+          {live && data.channels.length === 0 && (
+            <p className="m-0 rounded-[10px] border border-dashed border-[#CBC9C5] p-4 text-[#6B6965]">
+              No channels are connected to this Buffer account yet. Connect one in Buffer, or{" "}
+              <a href="/queue?sample=1" className="underline">view sample data</a>.
+            </p>
+          )}
+
+          <Calendar days={days} channels={channels} posts={posts} selectedDay={reviewOnly ? null : day} onPickDay={pickDay} />
+          {data.hasMore && <p className="m-0 -mt-3 text-xs text-[#6B6965]">This week has more posts than were loaded. Showing the first {data.posts.length}.</p>}
 
           <PostsTable
+            days={days}
+            readOnly={live}
             title={tableTitle}
             posts={list}
-            channels={CHANNELS}
+            channels={data.channels}
             scope={scope}
             reviewOnly={reviewOnly}
             onScope={(s) => { setScope(s); setReviewOnly(false); }}
@@ -134,10 +147,12 @@ export function Queue() {
         </div>
       </main>
 
-      {open && (
+      {open && openChannel && (
         <EventModal
           post={open}
-          channel={CHANNELS.find((c) => c.id === open.channel)!}
+          day={days[open.day]!}
+          readOnly={live}
+          channel={openChannel}
           text={open.full}
           onEdit={(t) => setEdits((e) => ({ ...e, [open.id]: t }))}
           onApprove={() => review(open.id, "approved")}
@@ -147,8 +162,9 @@ export function Queue() {
       )}
       {modal?.type === "gaps" && (
         <GapsModal
+          canAct={!live}
           gaps={gaps}
-          ideas={SAMPLE_IDEAS}
+          ideas={data.ideas}
           ideasOpen={ideasOpen}
           fillLabel="Use for Tue 17:12"
           onToggleIdeas={() => setIdeasOpen((o) => !o)}
@@ -161,4 +177,3 @@ export function Queue() {
     </div>
   );
 }
-
