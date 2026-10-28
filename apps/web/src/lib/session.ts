@@ -1,13 +1,14 @@
 import { cookies } from "next/headers";
-import { getFreshTokens, memoryTokenStore, randomString } from "@cadence/buffer-client";
+import { getFreshTokens, randomString } from "@cadence/buffer-client";
 import { seal, unseal } from "./crypto";
 import { oauthConfig, sessionSecret } from "./env";
+import { createTokenStore } from "./token-store";
 
 const SESSION_COOKIE = "cadence_session";
 const OAUTH_COOKIE = "cadence_oauth";
 
-// TODO(day 2): swap for the Postgres store (refresh token encrypted at rest) before deploying.
-export const tokenStore = memoryTokenStore();
+// TODO: swap for the Postgres store (refresh token encrypted at rest) before deploying.
+export const tokenStore = createTokenStore();
 
 const base = { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" };
 
