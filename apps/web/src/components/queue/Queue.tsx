@@ -298,7 +298,7 @@ export function Queue({ data }: { data: QueueData }) {
           onEdit={(t) => setEdits((e) => ({ ...e, [open.id]: t }))}
           onApprove={(mode) => approve(open, mode)}
           onSaveIdea={live && open.local ? () => draftToIdea(open) : undefined}
-          onTag={open.status === "sent" ? undefined : (t) => tagPost(open, t)}
+          onTag={(t) => tagPost(open, t)}
           tagNote={live ? (open.local ? "The tag is created in Buffer the first time it is used." : "Saves to Buffer right away.") : undefined}
           onSkip={() => review(open.id, "skipped")}
           onClose={close}
