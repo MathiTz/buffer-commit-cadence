@@ -39,6 +39,13 @@ export async function endSession() {
   (await cookies()).delete(SESSION_COOKIE);
 }
 
+// A cookie alone isn't a session: its tokens must still be in the store (the dev memory store
+// is wiped on restart). Without this check, a stale cookie ping-pongs between / and /queue.
+export async function isSignedIn(): Promise<boolean> {
+  const sid = await currentSid();
+  return Boolean(sid && (await tokenStore.get(sid)));
+}
+
 // Returns a valid access token for the signed-in user (refreshing if needed), or null.
 export async function accessToken(): Promise<string | null> {
   const sid = await currentSid();

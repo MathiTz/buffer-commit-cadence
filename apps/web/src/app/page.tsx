@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { currentSid } from "@/lib/session";
+import { isSignedIn } from "@/lib/session";
 
 const errors: Record<string, string> = {
   access_denied: "You declined access. Nothing was connected.",
@@ -8,7 +8,7 @@ const errors: Record<string, string> = {
 };
 
 export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  if (await currentSid()) redirect("/queue");
+  if (await isSignedIn()) redirect("/queue");
   const { error } = await searchParams;
 
   return (
