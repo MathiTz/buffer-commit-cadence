@@ -1,14 +1,39 @@
 import { redirect } from "next/navigation";
-import { getAccount, getChannels } from "@cadence/buffer-client";
-import { accessToken } from "@/lib/session";
+import { BufferApiError, getAccount, getChannels } from "@cadence/buffer-client";
+import { cached } from "@/lib/cache";
+import { accessToken, currentSid } from "@/lib/session";
 
-export default async function QueuePage() {
-  const token = await accessToken();
-  if (!token) redirect("/");
+const SNAPSHOT_TTL_MS = 60_000;
 
+async function loadOverview(token: string) {
   const { account } = await getAccount(token);
   const org = account.organizations[0];
   const { channels, rateLimit } = org ? await getChannels(token, org.id) : { channels: [], rateLimit: null };
+  return { org, channels, rateLimit };
+}
+
+export default async function QueuePage() {
+  const sid = await currentSid();
+  const token = await accessToken();
+  if (!sid || !token) redirect("/");
+
+  let overview;
+  try {
+    overview = await cached(`${sid}:overview`, SNAPSHOT_TTL_MS, () => loadOverview(token));
+  } catch (e) {
+    if (e instanceof BufferApiError && e.status === 429) {
+      return (
+        <main className="mx-auto max-w-3xl px-4 py-10">
+          <h1 className="mb-2 text-xl font-semibold">Queue</h1>
+          <p className="text-sm text-[color:var(--muted)]">
+            You&apos;ve reached Buffer&apos;s request limit for now. It resets within 15 minutes, then reload this page.
+          </p>
+        </main>
+      );
+    }
+    throw e;
+  }
+  const { org, channels, rateLimit } = overview;
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
