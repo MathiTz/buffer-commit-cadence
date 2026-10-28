@@ -48,11 +48,12 @@ interface EventProps {
   text: string;
   onEdit: (text: string) => void;
   onApprove: (asDraft: boolean) => void;
+  onSaveIdea?: () => void; // keep a local draft as a Buffer Idea instead of posting it
   onSkip: () => void;
   onClose: () => void;
 }
 
-export function EventModal({ post, day, readOnly, needsConfirm, busy, error, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
+export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onSaveIdea, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
   const draft = post.status === "draft" && !readOnly;
   const [confirming, setConfirming] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -145,6 +146,7 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, cha
               </>
             ) : (
               <>
+                {onSaveIdea && <button type="button" onClick={onSaveIdea} disabled={busy || blocked} className={`${btn} h-auto px-3.5 py-[7px] disabled:opacity-50`}>Save as idea</button>}
                 <button type="button" onClick={onSkip} className={`${btn} h-auto px-3.5 py-[7px]`}>Skip and remove</button>
                 <button type="button" onClick={() => (needsConfirm ? setConfirming(true) : onApprove(false))} disabled={blocked} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>Approve</button>
               </>

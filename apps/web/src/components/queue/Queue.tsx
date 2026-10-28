@@ -133,6 +133,18 @@ export function Queue({ data }: { data: QueueData }) {
     showToast({ text: "Idea saved in Buffer." }, 6000);
     router.refresh();
   };
+  const draftToIdea = async (post: Post) => {
+    if (!data.organizationId) return setActionError("No Buffer organization found.");
+    setBusy(true);
+    setActionError(null);
+    const r = await saveIdea({ organizationId: data.organizationId, title: "", text: post.full });
+    setBusy(false);
+    if (!r.ok) return setActionError(r.message);
+    setExtra((e) => e.filter((x) => x.id !== post.id));
+    close();
+    showToast({ text: "Saved to your Buffer Ideas." }, 6000);
+    router.refresh();
+  };
   const undo = async () => {
     if (!toast?.undoId) return;
     setBusy(true);
@@ -235,6 +247,7 @@ export function Queue({ data }: { data: QueueData }) {
           text={open.full}
           onEdit={(t) => setEdits((e) => ({ ...e, [open.id]: t }))}
           onApprove={(asDraft) => approve(open, asDraft)}
+          onSaveIdea={live && open.local ? () => draftToIdea(open) : undefined}
           onSkip={() => review(open.id, "skipped")}
           onClose={close}
         />
