@@ -168,7 +168,7 @@ export function Queue({ data }: { data: QueueData }) {
   // Draft tags are held here until approval. A post that already exists in Buffer is retagged there, and only its tags change.
   const tagPost = async (post: Post, tag: Tag) => {
     if (!live || post.local) return setTagEdits((t) => ({ ...t, [post.id]: tag }));
-    const planning = new Set(data.tags.filter((t) => Object.values(TAGS).some((x) => x.name.toLowerCase() === t.name.trim().toLowerCase())).map((t) => t.id));
+    const planning = new Set((data.tags ?? []).filter((t) => Object.values(TAGS).some((x) => x.name.toLowerCase() === t.name.trim().toLowerCase())).map((t) => t.id));
     setBusy(true);
     setActionError(null);
     const r = await setPostTag({ postId: post.id, organizationId: data.organizationId, text: post.full, tag, keepIds: (post.tagIds ?? []).filter((id) => !planning.has(id)) });

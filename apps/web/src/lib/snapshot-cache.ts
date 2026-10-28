@@ -34,7 +34,7 @@ async function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRe
 export async function readSnapshot(key: string): Promise<QueueData | null> {
   try {
     const entry = await run<Entry | undefined>("readonly", (s) => s.get(key));
-    if (!entry || Date.now() - entry.savedAt > MAX_AGE_MS || !Array.isArray(entry.data?.days)) return null;
+    if (!entry || Date.now() - entry.savedAt > MAX_AGE_MS || !Array.isArray(entry.data?.days) || !Array.isArray(entry.data.tags)) return null; // older shapes are dropped
     return entry.data;
   } catch {
     return null;
