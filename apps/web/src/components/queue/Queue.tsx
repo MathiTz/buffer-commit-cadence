@@ -175,7 +175,7 @@ export function Queue({ data }: { data: QueueData }) {
               {pending} to review
             </button>
             <button type="button" onClick={() => setModal({ type: "gaps" })} className={`${chip} border-[#DEDDDA] bg-white`}>
-              <IconInfo />{gaps.length} gaps
+              <IconInfo />{gaps.length} {gaps.length === 1 ? "gap" : "gaps"}
             </button>
             <button type="button" onClick={() => setModal({ type: "balance" })} className={`${chip} border-[#DEDDDA] bg-white`}>
               <IconBars />Balance
