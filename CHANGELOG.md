@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+- From GitHub: pick a public repo, and Cadence lists its releases (or CHANGELOG.md when there are none). Each release becomes one draft per channel, placed in the channel's next open queue slot, for you to review and approve. Drafts follow plain templates sized to each channel's limit, with no AI.
+
+### Changed
+- The calendar marks only real open queue slots (a dashed dot) instead of calling every empty day "empty".
+
 ## v0.1.0 (2026-10-28)
 
 First day of the Buffer Commit build window. Cadence is one Queue page that combines planning (a week calendar) and shipping (turning ideas into posts you review).

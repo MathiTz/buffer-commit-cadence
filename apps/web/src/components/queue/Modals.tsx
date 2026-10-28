@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   HASHTAG_SNIPPETS, STATUS_LABEL, TAGS, hasBufferMention, isOffTarget, longestParagraph,
-  type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post,
+  type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post, type Release,
 } from "@cadence/core";
 import { ChannelBadge, IconClose } from "./icons";
 import { btn, btnPrimary, iconBtn, PILL } from "./style";
@@ -109,7 +109,7 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, cha
               <div className="text-xs text-[#1E6B33]">@Buffer will be tagged as a mention of Buffer&apos;s LinkedIn page.</div>
             )}
             <div className="text-xs text-[#6B6965]">
-              {post.kind.startsWith("From your Ideas") ? "From your Buffer Ideas." : "Drafted by AI from your release notes."} Nothing is added to Buffer until you approve.
+              {post.kind.startsWith("From your Ideas") ? "From your Buffer Ideas." : post.kind.startsWith("From GitHub") ? "Drafted from your GitHub release notes." : "Drafted from your release notes."} Nothing is added to Buffer until you approve.
             </div>
           </>
         ) : (
@@ -271,6 +271,79 @@ export function IdeaModal({ busy, error, onSave, onClose }: IdeaProps) {
         <button type="button" onClick={() => onSave(title, text)} disabled={busy || !text.trim()} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>
           {busy ? "Saving…" : "Save idea"}
         </button>
+      </div>
+    </Overlay>
+  );
+}
+
+interface GithubProps {
+  defaultRepo: string;
+  load: (repo: string) => Promise<{ ok: true; value: { repo: string; releases: Release[] } } | { ok: false; message: string }>;
+  onDraft: (release: Release, repo: string) => void;
+  onClose: () => void;
+}
+
+const REPO_KEY = "cadence.githubRepo";
+
+// The part of a release title after the tag, without the date a changelog heading repeats.
+const subtitle = (r: Release) => {
+  const rest = r.title.replace(r.tag, "").replace(/^[\s:(–-]+|[)\s]+$/g, "");
+  return rest === r.date ? "" : rest;
+};
+
+export function GithubModal({ defaultRepo, load, onDraft, onClose }: GithubProps) {
+  const [repo, setRepo] = useState(() => {
+    try { return localStorage.getItem(REPO_KEY) || defaultRepo; } catch { return defaultRepo; }
+  });
+  const [releases, setReleases] = useState<Release[] | null>(null);
+  const [loaded, setLoaded] = useState(repo);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const find = async (name: string) => {
+    setLoading(true);
+    setError(null);
+    const r = await load(name);
+    setLoading(false);
+    if (!r.ok) { setReleases(null); return setError(r.message); }
+    setReleases(r.value.releases);
+    setLoaded(r.value.repo);
+    try { localStorage.setItem(REPO_KEY, r.value.repo); } catch { /* remembering the repo is optional */ }
+  };
+  useEffect(() => { void find(repo); /* once, on open */ // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <Overlay label="From GitHub" onClose={onClose}>
+      <Header onClose={onClose}>From GitHub</Header>
+      <div className="flex flex-col gap-3 px-[18px] py-4">
+        <form onSubmit={(e) => { e.preventDefault(); void find(repo); }} className="flex gap-2">
+          <input
+            value={repo}
+            onChange={(e) => setRepo(e.target.value)}
+            aria-label="GitHub repository"
+            placeholder="owner/name"
+            className="min-w-0 flex-1 rounded-lg border border-[#CBC9C5] p-2 text-sm"
+          />
+          <button type="submit" disabled={loading || !repo.trim()} className={`${btn} h-auto px-3 py-1.5 disabled:opacity-50`}>{loading ? "Looking…" : "Find releases"}</button>
+        </form>
+        <div className="text-xs leading-normal text-[#6B6965]">
+          Reads your public releases, or CHANGELOG.md if there are none. No GitHub sign-in. Each release becomes one draft per channel for you to review.
+        </div>
+        {error && <div className="text-xs text-[#B3261E]">{error}</div>}
+        {releases && releases.length > 0 && (
+          <div className="rounded-lg border border-[#EBEAE8]">
+            {releases.map((r) => (
+              <div key={r.tag} className="flex items-center justify-between gap-3 border-b border-[#F1F0EE] px-3 py-2.5 last:border-b-0">
+                <div className="min-w-0">
+                  <div className="truncate font-medium">{r.tag}{subtitle(r) && <span className="font-normal text-[#6B6965]"> · {subtitle(r)}</span>}</div>
+                  <div className="text-xs text-[#6B6965]">{r.source === "release" ? "GitHub release" : "CHANGELOG.md"}{r.date ? ` · ${r.date}` : ""}</div>
+                </div>
+                <button type="button" onClick={() => onDraft(r, loaded)} className={`${btnPrimary} shrink-0 px-3 py-1.5 text-xs`}>Draft posts</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </Overlay>
   );

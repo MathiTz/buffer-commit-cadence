@@ -4,3 +4,4 @@ export * from "./week";
 export * from "./gaps";
 export * from "./sample";
 export * from "./mentions";
+export * from "./github";

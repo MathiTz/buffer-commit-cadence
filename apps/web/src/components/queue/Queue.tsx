@@ -3,20 +3,21 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { tagBalance, zonedToUtc, type GapDef, type Idea, type Post, type QueueData } from "@cadence/core";
-import { approvePost, saveIdea, undoPost } from "@/app/queue/actions";
+import { draftPosts, pickSlot, tagBalance, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type QueueData, type Release } from "@cadence/core";
+import { approvePost, loadReleases, saveIdea, undoPost } from "@/app/queue/actions";
 import { Calendar } from "./Calendar";
-import { BalanceModal, EventModal, GapsModal, IdeaModal } from "./Modals";
+import { BalanceModal, EventModal, GapsModal, GithubModal, IdeaModal } from "./Modals";
 import { IconBars, IconInfo, IconNext, IconPrev } from "./icons";
 import { PostsTable } from "./PostsTable";
 import { Sidebar } from "./Sidebar";
 import { btn, btnPrimary, iconBtn } from "./style";
 
-type Modal = { type: "event"; id: string } | { type: "gaps" } | { type: "balance" } | { type: "idea" } | null;
+type Modal = { type: "event"; id: string } | { type: "gaps" } | { type: "balance" } | { type: "idea" } | { type: "github" } | null;
 type Review = "approved" | "skipped";
 type Toast = { text: string; undoId?: string };
 
 const TOAST_MS = 60_000; // the undo window
+const DEFAULT_REPO = "MathiTz/buffer-commit-cadence";
 
 const chip = "flex h-7 items-center gap-1.5 rounded-full border px-3 text-xs font-medium text-[#2B2A28]";
 const noun = (n: number) => (n === 1 ? "post" : "posts");
@@ -106,6 +107,21 @@ export function Queue({ data }: { data: QueueData }) {
     showToast({ text: asDraft ? "Saved as a draft in Buffer." : "Added to your Buffer queue.", undoId: r.value.id });
     router.refresh();
   };
+  // One draft per channel from a release, each in the channel's next open slot (or 10:00). They still need approval.
+  const draftFromRelease = (release: Release, repo: string) => {
+    const now = zonedParts(new Date(), data.timezone);
+    const openSlots = gaps.flatMap((g) => g.slots ?? []);
+    const usable = data.channels.filter((c) => !c.paused);
+    const made: Post[] = draftPosts(release, repo.split("/")[1] ?? repo, usable).map((d, i) => {
+      const slot = pickSlot({ days, now, openSlots, channelId: d.channel.id, offsetMinutes: i * 15, fallbackDay: day });
+      return { id: `gh-${Date.now()}-${i}`, day: slot.day, channel: d.channel.id, tag: "shipped", time: slot.time, status: "draft", kind: `From GitHub: ${release.tag}`, full: d.full, local: true };
+    });
+    if (!made.length) return;
+    setExtra((e) => [...e, ...made]);
+    setReviewOnly(true);
+    close();
+    showToast({ text: `${made.length} draft${made.length === 1 ? "" : "s"} from ${release.tag} ready to review.` }, 8000);
+  };
   const saveNewIdea = async (title: string, text: string) => {
     if (!data.organizationId) return setActionError("No Buffer organization found.");
     setBusy(true);
@@ -157,7 +173,7 @@ export function Queue({ data }: { data: QueueData }) {
             <NavLink href={data.nav.today} className={btn}>Today</NavLink>
             <NavLink href={data.nav.next} label="Next week" className={iconBtn}><IconNext /></NavLink>
             {live && <button type="button" onClick={() => { setActionError(null); setModal({ type: "idea" }); }} className={`${btn} ml-1.5`}>New idea</button>}
-            <button type="button" className={`${btn} ${live ? "" : "ml-1.5"}`}>From GitHub</button>
+            <button type="button" onClick={() => setModal({ type: "github" })} className={`${btn} ${live ? "" : "ml-1.5"}`}>From GitHub</button>
             <button type="button" className={`${btnPrimary} h-7 px-3 text-[13px]`}>New post</button>
           </div>
         </div>
@@ -236,6 +252,7 @@ export function Queue({ data }: { data: QueueData }) {
           onClose={close}
         />
       )}
+      {modal?.type === "github" && <GithubModal defaultRepo={DEFAULT_REPO} load={loadReleases} onDraft={draftFromRelease} onClose={close} />}
       {modal?.type === "idea" && <IdeaModal busy={busy} error={actionError} onSave={saveNewIdea} onClose={close} />}
       {modal?.type === "balance" && <BalanceModal rows={tagBalance(posts)} onClose={close} />}
       {toast && (
