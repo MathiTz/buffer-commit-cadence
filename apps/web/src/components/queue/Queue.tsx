@@ -189,7 +189,7 @@ export function Queue({ data }: { data: QueueData }) {
             </p>
           )}
 
-          <Calendar days={days} channels={channels} posts={posts} selectedDay={reviewOnly ? null : day} onPickDay={pickDay} />
+          <Calendar days={days} openSlots={gaps.flatMap((g) => g.slots ?? [])} channels={channels} posts={posts} selectedDay={reviewOnly ? null : day} onPickDay={pickDay} />
           {data.hasMore && <p className="m-0 -mt-3 text-xs text-[#6B6965]">This week has more posts than were loaded. Showing the first {data.posts.length}.</p>}
 
           <PostsTable

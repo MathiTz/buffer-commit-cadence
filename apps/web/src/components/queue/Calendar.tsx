@@ -1,9 +1,10 @@
-import { TAGS, type Channel, type Day, type Post } from "@cadence/core";
+import { TAGS, type Channel, type Day, type GapSlot, type Post } from "@cadence/core";
 import { ChannelBadge } from "./icons";
 import { dotStyle } from "./style";
 
 interface Props {
   days: Day[];
+  openSlots: GapSlot[]; // queue slots with no post: the only cells marked as gaps
   channels: Channel[]; // visible channels only
   posts: Post[]; // posts of visible channels
   selectedDay: number | null; // null while the table shows "needs review"
@@ -15,7 +16,7 @@ const MAX_DOTS = 6;
 
 const plural = (n: number) => (n === 1 ? "1 post" : `${n} posts`);
 
-export function Calendar({ days, channels, posts, selectedDay, onPickDay }: Props) {
+export function Calendar({ days, openSlots, channels, posts, selectedDay, onPickDay }: Props) {
   return (
     <section aria-label="Week calendar">
       <div className="overflow-x-auto">
@@ -54,12 +55,13 @@ export function Calendar({ days, channels, posts, selectedDay, onPickDay }: Prop
               </div>
               {days.map((d, di) => {
                 const here = posts.filter((p) => p.day === di && p.channel === ch.id);
+                const open = openSlots.filter((s) => s.day === di && s.channel === ch.id);
                 return (
                   <button
                     key={d.name}
                     type="button"
                     onClick={() => onPickDay(di)}
-                    aria-label={`${d.full}, ${ch.name}: ${plural(here.length)}`}
+                    aria-label={`${d.full}, ${ch.name}: ${plural(here.length)}${open.length ? `, open queue slot at ${open.map((s) => s.time).join(", ")}` : ""}`}
                     className="flex min-h-[58px] flex-wrap content-center justify-center gap-[5px] border-0 border-l border-[#EBEAE8] px-[5px] py-2 text-[11px] text-[#8A8782]"
                     style={{ background: di === selectedDay ? "#F1FAEF" : "#FFFFFF" }}
                   >
@@ -67,7 +69,10 @@ export function Calendar({ days, channels, posts, selectedDay, onPickDay }: Prop
                       <span key={p.id} className="box-border block size-[11px] rounded-full border-2" style={dotStyle(TAGS[p.tag].color, p.status)} />
                     ))}
                     {here.length > MAX_DOTS && <span className="font-semibold text-[#2B2A28]">+{here.length - MAX_DOTS}</span>}
-                    {here.length === 0 && <span>empty</span>}
+                    {open.map((s) => (
+                      <span key={s.time} title={`Open queue slot at ${s.time}`} className="box-border block size-[11px] rounded-full border-2 border-dashed border-[#9A9791]" />
+                    ))}
+                    {here.length === 0 && open.length > 0 && <span className="w-full text-center">open {open[0]!.time}</span>}
                   </button>
                 );
               })}
@@ -90,6 +95,10 @@ export function Calendar({ days, channels, posts, selectedDay, onPickDay }: Prop
             {label}
           </span>
         ))}
+        <span className="flex items-center gap-1.5">
+          <span className="box-border block size-[11px] rounded-full border-2 border-dashed border-[#9A9791]" />
+          Open queue slot
+        </span>
         <span className="ml-auto">Dot colour is the tag. One dot is one post.</span>
       </div>
     </section>
