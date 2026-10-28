@@ -1,7 +1,7 @@
 "use server";
 
 import { BufferApiError, createIdea, createPost, deletePost } from "@cadence/buffer-client";
-import { linkedInMentions, parseChangelog, type Release } from "@cadence/core";
+import { linkedInMentions, parseChangelog, type PublishMode, type Release } from "@cadence/core";
 import { cached, invalidate } from "@/lib/cache";
 import { accessToken, currentSid } from "@/lib/session";
 
@@ -23,8 +23,8 @@ export interface ApproveInput {
   channelId: string;
   service: string; // the channel's Buffer service, which decides how mentions are written
   text: string;
-  dueAt: string; // ISO 8601 UTC
-  asDraft: boolean; // save in Buffer's drafts instead of scheduling
+  dueAt: string; // ISO 8601 UTC: the slot the post is scheduled for (ignored for "now")
+  mode: PublishMode;
   tagIds?: string[];
 }
 
@@ -35,14 +35,17 @@ export async function approvePost(input: ApproveInput): Promise<ActionResult<{ i
   const text = input.text.trim();
   if (!text || text.length > 10_000) return fail("The post text is empty or too long.");
   const due = new Date(input.dueAt);
-  if (Number.isNaN(due.getTime())) return fail("That time isn't valid.");
-  if (due.getTime() < Date.now() + 60_000) return fail("That slot has already passed. Pick a later one.");
+  if (input.mode !== "now") {
+    if (Number.isNaN(due.getTime())) return fail("That time isn't valid.");
+    if (due.getTime() < Date.now() + 60_000) return fail("That slot has already passed. Choose Post now, or pick a later slot.");
+  }
 
   // "@Buffer" becomes a real, tagged LinkedIn mention; on other services it stays plain text.
   const mention = input.service === "linkedin" ? linkedInMentions(text) : { text, annotations: [] };
   try {
     const r = await createPost(s.token, {
-      channelId: input.channelId, text: mention.text, dueAt: due.toISOString(), saveToDraft: input.asDraft, tagIds: input.tagIds,
+      channelId: input.channelId, text: mention.text, tagIds: input.tagIds,
+      ...(input.mode === "now" ? { shareNow: true } : { dueAt: due.toISOString(), saveToDraft: input.mode === "draft" }),
       linkedInAnnotations: mention.annotations,
     });
     if (!r.ok) return fail(r.message);

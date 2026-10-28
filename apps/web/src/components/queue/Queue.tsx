@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { draftPosts, pickSlot, tagBalance, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type QueueData, type Release } from "@cadence/core";
+import { draftPosts, pickSlot, tagBalance, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type PublishMode, type QueueData, type Release } from "@cadence/core";
 import { approvePost, loadReleases, saveIdea, undoPost } from "@/app/queue/actions";
 import { Calendar } from "./Calendar";
 import { BalanceModal, EventModal, GapsModal, GithubModal, IdeaModal } from "./Modals";
@@ -92,19 +92,21 @@ export function Queue({ data }: { data: QueueData }) {
     return slot ? `Use for ${days[slot.day]!.name} ${slot.time}` : "Use this idea";
   };
 
-  const approve = async (post: Post, asDraft: boolean) => {
+  const approve = async (post: Post, mode: PublishMode) => {
     if (!live) return review(post.id, "approved");
     setBusy(true);
     setActionError(null);
     const r = await approvePost({
-      channelId: post.channel, service: data.channels.find((c) => c.id === post.channel)?.service ?? "", text: post.full, asDraft, tagIds: post.tagIds,
+      channelId: post.channel, service: data.channels.find((c) => c.id === post.channel)?.service ?? "", text: post.full, mode, tagIds: post.tagIds,
       dueAt: zonedToUtc(days[post.day]!.iso, post.time, data.timezone),
     });
     setBusy(false);
     if (!r.ok) return setActionError(r.message);
     setExtra((e) => e.filter((x) => x.id !== post.id));
     close();
-    showToast({ text: asDraft ? "Saved as a draft in Buffer." : "Added to your Buffer queue.", undoId: r.value.id });
+    // A post that is already live can't be unpublished from here, so only the others offer Undo.
+    if (mode === "now") showToast({ text: "Posted." });
+    else showToast({ text: mode === "draft" ? "Saved as a draft in Buffer." : "Added to your Buffer queue.", undoId: r.value.id });
     router.refresh();
   };
   // One draft per channel from a release, each in the channel's next open slot (or 10:00). They still need approval.
@@ -246,7 +248,7 @@ export function Queue({ data }: { data: QueueData }) {
           channel={openChannel}
           text={open.full}
           onEdit={(t) => setEdits((e) => ({ ...e, [open.id]: t }))}
-          onApprove={(asDraft) => approve(open, asDraft)}
+          onApprove={(mode) => approve(open, mode)}
           onSaveIdea={live && open.local ? () => draftToIdea(open) : undefined}
           onSkip={() => review(open.id, "skipped")}
           onClose={close}

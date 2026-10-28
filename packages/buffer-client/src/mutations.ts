@@ -9,6 +9,7 @@ export interface CreatePostArgs {
   text: string;
   dueAt?: string; // ISO 8601 UTC. Omit to add to the channel's queue.
   saveToDraft?: boolean;
+  shareNow?: boolean; // publish immediately; ignores dueAt
   tagIds?: string[];
   linkedInAnnotations?: LinkedInAnnotationInput[]; // mentions, as positions in `text`
 }
@@ -26,8 +27,8 @@ export async function createPost(token: string, args: CreatePostArgs): Promise<M
     channelId: args.channelId,
     text: args.text,
     schedulingType: "automatic",
-    mode: args.dueAt ? "customScheduled" : "addToQueue",
-    ...(args.dueAt ? { dueAt: args.dueAt } : {}),
+    mode: args.shareNow ? "shareNow" : args.dueAt ? "customScheduled" : "addToQueue",
+    ...(args.dueAt && !args.shareNow ? { dueAt: args.dueAt } : {}),
     saveToDraft: Boolean(args.saveToDraft),
     needsApproval: false,
     assets: [],

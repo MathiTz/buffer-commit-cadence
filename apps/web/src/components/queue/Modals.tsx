@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   HASHTAG_SNIPPETS, STATUS_LABEL, TAGS, hasBufferMention, isOffTarget, longestParagraph,
-  type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post, type Release,
+  type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post, type PublishMode, type Release,
 } from "@cadence/core";
 import { ChannelBadge, IconClose } from "./icons";
 import { btn, btnPrimary, iconBtn, PILL } from "./style";
@@ -47,7 +47,7 @@ interface EventProps {
   channel: Channel;
   text: string;
   onEdit: (text: string) => void;
-  onApprove: (asDraft: boolean) => void;
+  onApprove: (mode: PublishMode) => void;
   onSaveIdea?: () => void; // keep a local draft as a Buffer Idea instead of posting it
   onSkip: () => void;
   onClose: () => void;
@@ -57,7 +57,7 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onS
   const draft = post.status === "draft" && !readOnly;
   const [confirming, setConfirming] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
-  const [asDraft, setAsDraft] = useState(false);
+  const [mode, setMode] = useState<PublishMode>("schedule");
   const pill = PILL[post.status];
   const paragraphs = text.split("\n\n");
   const longest = longestParagraph(text);
@@ -121,12 +121,21 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onS
         )}
         {confirming && (
           <div className="rounded-lg border border-[#8ED48F] bg-[#F1FAEF] p-3 text-sm">
-            <div className="font-medium">{asDraft ? "This saves a draft in Buffer." : "This adds a post to your Buffer queue."}</div>
-            <div className="mt-1 text-[#6B6965]">{channel.name} · {day.full} at {post.time}</div>
-            <label className="mt-2 flex items-center gap-2 text-xs">
-              <input type="checkbox" checked={asDraft} onChange={(e) => setAsDraft(e.target.checked)} />
-              Save as a draft in Buffer instead of scheduling
-            </label>
+            <div className="font-medium">
+              {mode === "now" ? `This publishes to ${channel.name} right now.` : mode === "draft" ? "This saves a draft in Buffer." : "This adds a post to your Buffer queue."}
+            </div>
+            <div className="mt-1 text-[#6B6965]">
+              {mode === "now" ? "It goes live immediately and can't be undone from Cadence." : `${channel.name} · ${day.full} at ${post.time}`}
+            </div>
+            <fieldset className="mt-2 flex flex-col gap-1.5 border-0 p-0 text-xs">
+              <legend className="sr-only">What should happen</legend>
+              {([["schedule", `Schedule for ${day.name} ${post.time}`], ["draft", "Save as a draft in Buffer"], ["now", "Post now"]] as const).map(([value, label]) => (
+                <label key={value} className="flex items-center gap-2">
+                  <input type="radio" name="publish-mode" value={value} checked={mode === value} onChange={() => setMode(value)} />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
           </div>
         )}
         {error && <div className="text-xs text-[#B3261E]">{error}</div>}
@@ -140,15 +149,15 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onS
             {confirming ? (
               <>
                 <button type="button" onClick={() => setConfirming(false)} disabled={busy} className={`${btn} h-auto px-3.5 py-[7px]`}>Back</button>
-                <button type="button" onClick={() => onApprove(asDraft)} disabled={busy || blocked} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>
-                  {busy ? "Adding…" : asDraft ? "Save draft" : "Add to queue"}
+                <button type="button" onClick={() => onApprove(mode)} disabled={busy || blocked} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>
+                  {busy ? "Working…" : mode === "now" ? "Post now" : mode === "draft" ? "Save draft" : "Add to queue"}
                 </button>
               </>
             ) : (
               <>
                 {onSaveIdea && <button type="button" onClick={onSaveIdea} disabled={busy || blocked} className={`${btn} h-auto px-3.5 py-[7px] disabled:opacity-50`}>Save as idea</button>}
                 <button type="button" onClick={onSkip} className={`${btn} h-auto px-3.5 py-[7px]`}>Skip and remove</button>
-                <button type="button" onClick={() => (needsConfirm ? setConfirming(true) : onApprove(false))} disabled={blocked} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>Approve</button>
+                <button type="button" onClick={() => (needsConfirm ? setConfirming(true) : onApprove("schedule"))} disabled={blocked} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>Approve</button>
               </>
             )}
           </>

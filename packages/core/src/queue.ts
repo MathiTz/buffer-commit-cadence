@@ -31,6 +31,9 @@ export interface Post {
   tagIds?: string[]; // Buffer tag ids to apply when the post is created
 }
 
+/** What approving a draft does: queue it for its slot, save it as a Buffer draft, or publish it immediately. */
+export type PublishMode = "schedule" | "draft" | "now";
+
 export interface Idea { id: string; title: string; text?: string; tag: Tag; tagIds?: string[] }
 export interface GapSlot { channel: string; day: number; time: string }
 export interface GapDef { id: string; title: string; why: string; canFill: boolean; canSpread: boolean; slots?: GapSlot[] }
