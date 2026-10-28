@@ -14,3 +14,9 @@ export function cached<T>(key: string, ttlMs: number, load: () => Promise<T>): P
   map.set(key, { at: Date.now(), value });
   return value;
 }
+
+/** Drop every cached snapshot whose key starts with `prefix` (after a write, so the next load is fresh). */
+export function invalidate(prefix: string) {
+  const g = globalThis as unknown as { __cadenceCache?: Map<string, Entry> };
+  for (const key of g.__cadenceCache?.keys() ?? []) if (key.startsWith(prefix)) g.__cadenceCache!.delete(key);
+}

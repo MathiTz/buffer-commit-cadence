@@ -69,7 +69,7 @@ export const SAMPLE_IDEAS: Idea[] = [
 
 // Placeholder gaps. Real ones come from the deterministic rules (open slots, crowded days, balance).
 export const SAMPLE_GAPS: GapDef[] = [
-  { id: "g1", title: "LinkedIn has 3 open queue slots", why: "Tue 17:12, Wed 16:30 and Fri 16:34 have no post.", canFill: true, canSpread: false },
+  { id: "g1", title: "LinkedIn has 3 open queue slots", why: "Tue 17:12, Wed 16:30 and Fri 16:34 have no post.", canFill: true, canSpread: false, slots: [{ channel: "linkedin", day: 1, time: "17:12" }] },
   { id: "g2", title: "Thursday is crowded", why: "Thursday has 7 posts, the most of any day.", canFill: false, canSpread: true },
 ];
 
@@ -77,6 +77,7 @@ export const SAMPLE_GAPS: GapDef[] = [
 export function sampleQueueData(): QueueData {
   return {
     live: false,
+    timezone: "UTC",
     days: SAMPLE_DAYS,
     weekLabel: SAMPLE_WEEK_LABEL,
     selectedDay: SAMPLE_DEFAULT_DAY,

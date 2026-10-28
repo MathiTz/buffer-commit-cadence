@@ -1,4 +1,4 @@
-import type { Channel, Day, GapDef, Post } from "./queue";
+import type { Channel, Day, GapDef, GapSlot, Post } from "./queue";
 import { dayIndex } from "./week";
 
 const CROWDED_AT = 6; // posts in one day
@@ -24,6 +24,7 @@ export function findGaps({ days, channels, posts, now }: GapInput): GapDef[] {
   for (const ch of channels) {
     if (ch.paused) continue;
     const open: string[] = [];
+    const slots: GapSlot[] = [];
     days.forEach((d, di) => {
       if (d.iso < now.date) return;
       for (const slot of ch.schedule) {
@@ -31,7 +32,7 @@ export function findGaps({ days, channels, posts, now }: GapInput): GapDef[] {
         for (const raw of slot.times) {
           const time = raw.slice(0, 5);
           if (d.iso === now.date && time <= now.time) continue;
-          if (!posts.some((p) => p.channel === ch.id && p.day === di && p.time === time)) open.push(`${d.name} ${time}`);
+          if (!posts.some((p) => p.channel === ch.id && p.day === di && p.time === time)) { open.push(`${d.name} ${time}`); slots.push({ channel: ch.id, day: di, time }); }
         }
       }
     });
@@ -42,6 +43,7 @@ export function findGaps({ days, channels, posts, now }: GapInput): GapDef[] {
         why: `${listJoin(open)} ${open.length === 1 ? "has" : "have"} no post.`,
         canFill: true,
         canSpread: false,
+        slots,
       });
     }
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   STATUS_LABEL, TAGS, isOffTarget, longestParagraph,
   type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post,
@@ -41,19 +41,25 @@ interface EventProps {
   post: Post;
   day: Day;
   readOnly: boolean;
+  needsConfirm: boolean; // approving creates a real Buffer post, so ask first
+  busy: boolean;
+  error: string | null;
   channel: Channel;
   text: string;
   onEdit: (text: string) => void;
-  onApprove: () => void;
+  onApprove: (asDraft: boolean) => void;
   onSkip: () => void;
   onClose: () => void;
 }
 
-export function EventModal({ post, day, readOnly, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
+export function EventModal({ post, day, readOnly, needsConfirm, busy, error, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
   const draft = post.status === "draft" && !readOnly;
+  const [confirming, setConfirming] = useState(false);
+  const [asDraft, setAsDraft] = useState(false);
   const pill = PILL[post.status];
   const paragraphs = text.split("\n\n");
   const longest = longestParagraph(text);
+  const blocked = !text.trim() || longest > channel.charLimit;
 
   return (
     <Overlay label="Post details" onClose={onClose}>
@@ -88,8 +94,19 @@ export function EventModal({ post, day, readOnly, channel, text, onEdit, onAppro
           <p className="m-0 whitespace-pre-line text-sm leading-normal">{text}</p>
         )}
         {readOnly && post.status === "draft" && (
-          <div className="text-xs text-[#6B6965]">This post needs approval in Buffer. Approving from here comes with write access.</div>
+          <div className="text-xs text-[#6B6965]">This draft lives in Buffer. Review it there.</div>
         )}
+        {confirming && (
+          <div className="rounded-lg border border-[#8ED48F] bg-[#F1FAEF] p-3 text-sm">
+            <div className="font-medium">{asDraft ? "This saves a draft in Buffer." : "This adds a post to your Buffer queue."}</div>
+            <div className="mt-1 text-[#6B6965]">{channel.name} · {day.full} at {post.time}</div>
+            <label className="mt-2 flex items-center gap-2 text-xs">
+              <input type="checkbox" checked={asDraft} onChange={(e) => setAsDraft(e.target.checked)} />
+              Save as a draft in Buffer instead of scheduling
+            </label>
+          </div>
+        )}
+        {error && <div className="text-xs text-[#B3261E]">{error}</div>}
         {post.status === "error" && (
           <div className="text-xs text-[#B3261E]">Buffer couldn&apos;t publish this post. Check the channel connection, then try again.</div>
         )}
@@ -97,8 +114,19 @@ export function EventModal({ post, day, readOnly, channel, text, onEdit, onAppro
       <div className="flex flex-wrap justify-end gap-2 border-t border-[#EBEAE8] bg-[#FAFAF9] px-[18px] py-3">
         {draft ? (
           <>
-            <button type="button" onClick={onSkip} className={`${btn} h-auto px-3.5 py-[7px]`}>Skip and remove</button>
-            <button type="button" onClick={onApprove} className={`${btnPrimary} px-4 py-[7px] text-[13px]`}>Approve</button>
+            {confirming ? (
+              <>
+                <button type="button" onClick={() => setConfirming(false)} disabled={busy} className={`${btn} h-auto px-3.5 py-[7px]`}>Back</button>
+                <button type="button" onClick={() => onApprove(asDraft)} disabled={busy || blocked} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>
+                  {busy ? "Adding…" : asDraft ? "Save draft" : "Add to queue"}
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={onSkip} className={`${btn} h-auto px-3.5 py-[7px]`}>Skip and remove</button>
+                <button type="button" onClick={() => (needsConfirm ? setConfirming(true) : onApprove(false))} disabled={blocked} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>Approve</button>
+              </>
+            )}
           </>
         ) : (
           <>
@@ -112,18 +140,18 @@ export function EventModal({ post, day, readOnly, channel, text, onEdit, onAppro
 }
 
 interface GapsProps {
-  canAct: boolean;
+  canSpread: boolean;
   gaps: GapDef[];
   ideas: Idea[];
   ideasOpen: boolean;
-  fillLabel: string;
+  fillLabel: (gap: GapDef) => string;
   onToggleIdeas: () => void;
   onDismiss: (id: string) => void;
-  onUseIdea: (idea: Idea) => void;
+  onUseIdea: (idea: Idea, gap: GapDef) => void;
   onClose: () => void;
 }
 
-export function GapsModal({ canAct, gaps, ideas, ideasOpen, fillLabel, onToggleIdeas, onDismiss, onUseIdea, onClose }: GapsProps) {
+export function GapsModal({ canSpread, gaps, ideas, ideasOpen, fillLabel, onToggleIdeas, onDismiss, onUseIdea, onClose }: GapsProps) {
   return (
     <Overlay label="Gaps" onClose={onClose}>
       <Header onClose={onClose}>
@@ -138,29 +166,26 @@ export function GapsModal({ canAct, gaps, ideas, ideasOpen, fillLabel, onToggleI
             <div className="font-medium">{g.title}</div>
             <div className="mb-2.5 mt-0.5 text-[#6B6965]">{g.why}</div>
             <div className="flex flex-wrap gap-1.5">
-              {canAct && g.canFill && (
+              {g.canFill && (
                 <button type="button" onClick={onToggleIdeas} aria-expanded={ideasOpen} className={`${btnPrimary} px-3 py-[5px] text-xs`}>Fill from ideas</button>
               )}
-              {canAct && g.canSpread && <button type="button" className={`${btnPrimary} px-3 py-[5px] text-xs`}>Spread across the week</button>}
+              {canSpread && g.canSpread && <button type="button" className={`${btnPrimary} px-3 py-[5px] text-xs`}>Spread across the week</button>}
               <button type="button" onClick={() => onDismiss(g.id)} className={`${btn} h-auto px-3 py-[5px] text-xs`}>Dismiss</button>
             </div>
-            {canAct && g.canFill && ideasOpen && (
+            {g.canFill && ideasOpen && (
               <div className="mt-2.5 rounded-lg border border-[#EBEAE8]">
                 {ideas.map((i) => (
                   <div key={i.id} className="flex items-center justify-between gap-2.5 border-b border-[#F1F0EE] px-2.5 py-2 last:border-b-0">
                     <span className="flex min-w-0 items-center gap-2">
                       <span className="block size-2 shrink-0 rounded-full" style={{ background: TAGS[i.tag].color }} />{i.title}
                     </span>
-                    <button type="button" onClick={() => onUseIdea(i)} className={`${btn} h-auto whitespace-nowrap px-2.5 py-1 text-xs font-semibold`}>{fillLabel}</button>
+                    <button type="button" onClick={() => onUseIdea(i, g)} className={`${btn} h-auto whitespace-nowrap px-2.5 py-1 text-xs font-semibold`}>{fillLabel(g)}</button>
                   </div>
                 ))}
               </div>
             )}
           </div>
         ))}
-        {!canAct && gaps.length > 0 && (
-          <div className="text-xs text-[#6B6965]">Filling a gap adds posts to your Buffer queue, which comes with write access. For now these are read-only.</div>
-        )}
         {gaps.length === 0 && <div className="text-[#6B6965]">No gaps left. Your week looks full.</div>}
       </div>
     </Overlay>

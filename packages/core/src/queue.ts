@@ -27,13 +27,17 @@ export interface Post {
   full: string; // paragraphs separated by a blank line (a thread has one per post)
   status: PostStatus;
   kind: string;
+  local?: boolean; // a draft that only exists in this page until it is approved
+  tagIds?: string[]; // Buffer tag ids to apply when the post is created
 }
 
-export interface Idea { id: string; title: string; tag: Tag }
-export interface GapDef { id: string; title: string; why: string; canFill: boolean; canSpread: boolean }
+export interface Idea { id: string; title: string; tag: Tag; tagIds?: string[] }
+export interface GapSlot { channel: string; day: number; time: string }
+export interface GapDef { id: string; title: string; why: string; canFill: boolean; canSpread: boolean; slots?: GapSlot[] }
 
 export interface QueueData {
   live: boolean; // false = sample data
+  timezone: string; // IANA zone the week is shown in
   days: Day[];
   weekLabel: string;
   selectedDay: number;

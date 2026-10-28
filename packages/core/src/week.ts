@@ -15,6 +15,22 @@ export function zonedParts(when: string | Date, timeZone: string): ZonedParts {
   return { date: `${p.year}-${p.month}-${p.day}`, time: `${p.hour}:${p.minute}` };
 }
 
+/** The UTC instant (ISO 8601) at which a wall-clock date and time occurs in the given zone. */
+export function zonedToUtc(date: string, time: string, timeZone: string): string {
+  const [y, mo, d] = date.split("-").map(Number) as [number, number, number];
+  const [h, mi] = time.split(":").map(Number) as [number, number];
+  const wanted = Date.UTC(y, mo - 1, d, h, mi);
+  let guess = wanted;
+  // The zone's offset depends on the instant, so correct the guess until it round-trips (2 passes cover DST edges).
+  for (let i = 0; i < 2; i++) {
+    const p = zonedParts(new Date(guess), timeZone);
+    const [py, pmo, pd] = p.date.split("-").map(Number) as [number, number, number];
+    const [ph, pmi] = p.time.split(":").map(Number) as [number, number];
+    guess += wanted - Date.UTC(py, pmo - 1, pd, ph, pmi);
+  }
+  return new Date(guess).toISOString();
+}
+
 const utcNoon = (iso: string) => new Date(`${iso}T12:00:00Z`);
 const toIso = (d: Date) => d.toISOString().slice(0, 10);
 

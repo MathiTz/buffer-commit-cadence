@@ -11,7 +11,7 @@ export function oauthConfig(): OAuthConfig {
     clientId: required("BUFFER_CLIENT_ID"),
     clientSecret: process.env.BUFFER_CLIENT_SECRET || undefined,
     redirectUri: `${required("APP_URL")}/callback`,
-    scopes: process.env.BUFFER_SCOPES || "account:read posts:read ideas:read offline_access",
+    scopes: process.env.BUFFER_SCOPES || "account:read posts:read posts:write ideas:read offline_access",
   };
 }
 
