@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+:root {
+  --text: #2b2a28;
+  --muted: #6b6965;
+  --hairline: #ebeae8;
+  --action: #a8e5a0;
+  --action-hover: #8ed48f;
+  --action-text: #14391c;
+}
+
+body {
+  background: #fff;
+  color: var(--text);
+  font-family: var(--font-inter), system-ui, sans-serif;
+}
