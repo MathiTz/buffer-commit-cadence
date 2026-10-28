@@ -23,14 +23,17 @@ function usageFrom(rate: RateLimit): QueueData["usage"] {
   return { used: Math.max(0, limit - rate.remaining), limit, window: m[2]!.replace(/(\d)(min|days?|hours?)/, "$1 $2") };
 }
 
-/** One week of the user's real Buffer queue. Costs four API requests (account, channels, posts, ideas). */
+/** Days shown at once: two weeks, starting on a Monday. */
+const SPAN = 14;
+
+/** Two weeks of the user's real Buffer queue. Costs four API requests (account, channels, posts, ideas). */
 export async function loadQueueData(token: string, requestedWeek: string | undefined): Promise<QueueData> {
   const { account } = await getAccount(token);
   const org = account.organizations[0];
   const tz = account.timezone || "UTC";
   const now = zonedParts(new Date(), tz);
   const start = weekStart(requestedWeek ?? now.date);
-  const days = buildDays(start);
+  const days = buildDays(start, SPAN);
 
   const empty: QueueData = {
     live: true, organizationId: org?.id ?? null, timezone: tz, days, weekLabel: weekLabel(days), selectedDay: 0, channels: [], posts: [], drafts: [], ideas: [],
@@ -49,8 +52,8 @@ export async function loadQueueData(token: string, requestedWeek: string | undef
       };
     });
 
-  // Query a day wider than the week on each side, then bucket by the account's local date.
-  const range = [`${addDays(start, -1)}T00:00:00Z`, `${addDays(start, 8)}T00:00:00Z`] as const;
+  // Query a day wider than the range on each side, then bucket by the account's local date.
+  const range = [`${addDays(start, -1)}T00:00:00Z`, `${addDays(start, SPAN + 1)}T00:00:00Z`] as const;
   const { posts: rawPosts, hasMore, rateLimit } = await getPosts(token, org.id, range[0], range[1]);
   const { ideas: rawIdeas, rateLimit: lastRate } = await getIdeas(token, org.id);
 
@@ -72,6 +75,7 @@ export async function loadQueueData(token: string, requestedWeek: string | undef
 
   const todayIdx = days.findIndex((d) => d.iso === now.date);
   const nowWeek = weekStart(now.date);
+  const inView = todayIdx >= 0;
   return {
     live: true, organizationId: org.id, timezone: tz, days, weekLabel: weekLabel(days),
     selectedDay: todayIdx >= 0 ? todayIdx : 0,
@@ -80,9 +84,9 @@ export async function loadQueueData(token: string, requestedWeek: string | undef
     usage: usageFrom(lastRate) ?? usageFrom(rateLimit),
     hasMore,
     nav: {
-      prev: `/queue?week=${addDays(start, -7)}`,
-      next: `/queue?week=${addDays(start, 7)}`,
-      today: start === nowWeek ? undefined : "/queue",
+      prev: `/queue?week=${addDays(start, -SPAN)}`,
+      next: `/queue?week=${addDays(start, SPAN)}`,
+      today: inView && start === nowWeek ? undefined : "/queue",
     },
   };
 }

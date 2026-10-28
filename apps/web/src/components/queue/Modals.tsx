@@ -188,7 +188,7 @@ export function GapsModal({ canSpread, gaps, ideas, ideasOpen, fillLabel, onTogg
   return (
     <Overlay label="Gaps" onClose={onClose}>
       <Header onClose={onClose}>
-        <span>Gaps this week <span className="font-normal text-[#6B6965]">{gaps.length}</span></span>
+        <span>Gaps in view <span className="font-normal text-[#6B6965]">{gaps.length}</span></span>
       </Header>
       <div className="flex flex-col gap-3 px-[18px] py-3.5">
         <div className="text-xs leading-normal text-[#6B6965]">
@@ -202,7 +202,7 @@ export function GapsModal({ canSpread, gaps, ideas, ideasOpen, fillLabel, onTogg
               {g.canFill && (
                 <button type="button" onClick={onToggleIdeas} aria-expanded={ideasOpen} className={`${btnPrimary} px-3 py-[5px] text-xs`}>Fill from ideas</button>
               )}
-              {canSpread && g.canSpread && <button type="button" className={`${btnPrimary} px-3 py-[5px] text-xs`}>Spread across the week</button>}
+              {canSpread && g.canSpread && <button type="button" className={`${btnPrimary} px-3 py-[5px] text-xs`}>Spread across the days</button>}
               <button type="button" onClick={() => onDismiss(g.id)} className={`${btn} h-auto px-3 py-[5px] text-xs`}>Dismiss</button>
             </div>
             {g.canFill && ideasOpen && (
@@ -230,7 +230,7 @@ export function BalanceModal({ rows, onClose }: { rows: BalanceRow[]; onClose: (
     <Overlay label="Content balance" onClose={onClose}>
       <Header onClose={onClose}>Content balance</Header>
       <div className="flex flex-col gap-3.5 px-[18px] py-4">
-        <div className="text-xs text-[#6B6965]">Share of this week&apos;s posts against your target. The dark tick is the target.</div>
+        <div className="text-xs text-[#6B6965]">Share of the posts in view against your target. The dark tick is the target.</div>
         {rows.map((b) => (
           <div key={b.tag}>
             <div className="mb-[5px] flex justify-between">

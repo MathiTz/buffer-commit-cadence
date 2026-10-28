@@ -30,7 +30,7 @@ export function PostsTable({ days, isReviewable, title, posts, channels, scope, 
             Selected day
           </button>
           <button type="button" aria-pressed={scope === "week" && !reviewOnly} onClick={() => onScope("week")} className={`${seg(scope === "week" && !reviewOnly)} border-l border-[#DEDDDA]`}>
-            Whole week
+            All days
           </button>
         </div>
       </div>

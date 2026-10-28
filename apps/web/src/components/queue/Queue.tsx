@@ -68,7 +68,7 @@ export function Queue({ data }: { data: QueueData }) {
     ? `Needs review · ${list.length} ${noun(list.length)}`
     : scope === "day"
       ? `${days[day]!.full} · ${dayCount} ${noun(dayCount)}`
-      : `Whole week · ${posts.length} ${noun(posts.length)}`;
+      : `All days · ${posts.length} ${noun(posts.length)}`;
 
   // Real Buffer posts open read-only; only drafts created in this page can be approved.
   const isReviewable = (p: Post) => !live || !!p.local;
@@ -183,9 +183,9 @@ export function Queue({ data }: { data: QueueData }) {
             {!live && <span className="rounded-full bg-[#EDECE9] px-2 py-0.5 text-[11px] font-medium text-[#6B6965]">Sample data</span>}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <NavLink href={data.nav.prev} label="Previous week" className={iconBtn}><IconPrev /></NavLink>
+            <NavLink href={data.nav.prev} label="Previous two weeks" className={iconBtn}><IconPrev /></NavLink>
             <NavLink href={data.nav.today} className={btn}>Today</NavLink>
-            <NavLink href={data.nav.next} label="Next week" className={iconBtn}><IconNext /></NavLink>
+            <NavLink href={data.nav.next} label="Next two weeks" className={iconBtn}><IconNext /></NavLink>
             {live && <button type="button" onClick={() => { setActionError(null); setModal({ type: "idea" }); }} className={`${btn} ml-1.5`}>New idea</button>}
             <button type="button" onClick={() => setModal({ type: "github" })} className={`${btn} ${live ? "" : "ml-1.5"}`}>From GitHub</button>
             <button type="button" className={`${btnPrimary} h-7 px-3 text-[13px]`}>New post</button>
@@ -220,7 +220,7 @@ export function Queue({ data }: { data: QueueData }) {
           )}
 
           <Calendar days={days} openSlots={gaps.flatMap((g) => g.slots ?? [])} channels={channels} posts={posts} selectedDay={reviewOnly ? null : day} onPickDay={pickDay} />
-          {data.hasMore && <p className="m-0 -mt-3 text-xs text-[#6B6965]">This week has more posts than were loaded. Showing the first {data.posts.length}.</p>}
+          {data.hasMore && <p className="m-0 -mt-3 text-xs text-[#6B6965]">This range has more posts than were loaded. Showing the first {data.posts.length}.</p>}
 
           <PostsTable
             days={days}

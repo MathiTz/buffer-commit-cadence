@@ -48,8 +48,8 @@ export function weekStart(iso: string): string {
 
 export const isIsoDate = (s: string | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(utcNoon(s).getTime());
 
-export function buildDays(start: string): Day[] {
-  return Array.from({ length: 7 }, (_, i) => {
+export function buildDays(start: string, count = 7): Day[] {
+  return Array.from({ length: count }, (_, i) => {
     const iso = addDays(start, i);
     const d = utcNoon(iso);
     return {
@@ -62,7 +62,7 @@ export function buildDays(start: string): Day[] {
 }
 
 export function weekLabel(days: Day[]): string {
-  const [first, last] = [days[0]!, days[6]!];
+  const [first, last] = [days[0]!, days[days.length - 1]!];
   const month = (iso: string) => utcNoon(iso).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
   return month(first.iso) === month(last.iso)
     ? `${month(first.iso)} ${first.date} – ${last.date}`

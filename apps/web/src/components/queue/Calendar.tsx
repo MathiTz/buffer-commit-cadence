@@ -16,14 +16,28 @@ const MAX_DOTS = 6;
 
 const plural = (n: number) => (n === 1 ? "1 post" : `${n} posts`);
 
-export function Calendar({ days, openSlots, channels, posts, selectedDay, onPickDay }: Props) {
+export function Calendar(props: Props) {
+  const { days } = props;
+  // One grid per week; indices stay relative to the whole range.
+  const weeks = Array.from({ length: Math.ceil(days.length / 7) }, (_, w) => w * 7);
   return (
-    <section aria-label="Week calendar">
+    <section aria-label="Calendar">
+      <div className="flex flex-col gap-3">
+        {weeks.map((offset) => <WeekGrid key={offset} {...props} days={days.slice(offset, offset + 7)} offset={offset} />)}
+      </div>
+      <Legend />
+    </section>
+  );
+}
+
+function WeekGrid({ days, offset, openSlots, channels, posts, selectedDay, onPickDay }: Props & { offset: number }) {
+  return (
       <div className="overflow-x-auto">
         <div className="min-w-[660px] overflow-hidden rounded-[10px] border border-[#EBEAE8]">
           <div className={`${GRID} border-b border-[#EBEAE8] bg-[#FAFAF9]`}>
             <div />
-            {days.map((d, i) => {
+            {days.map((d, wi) => {
+              const i = offset + wi;
               const n = posts.filter((p) => p.day === i).length;
               const selected = i === selectedDay;
               return (
@@ -53,7 +67,8 @@ export function Calendar({ days, openSlots, channels, posts, selectedDay, onPick
                   <span className="truncate text-[11px] text-[#6B6965]">{ch.handle}</span>
                 </span>
               </div>
-              {days.map((d, di) => {
+              {days.map((d, wi) => {
+                const di = offset + wi;
                 const here = posts.filter((p) => p.day === di && p.channel === ch.id);
                 const open = openSlots.filter((s) => s.day === di && s.channel === ch.id);
                 return (
@@ -80,7 +95,11 @@ export function Calendar({ days, openSlots, channels, posts, selectedDay, onPick
           ))}
         </div>
       </div>
+  );
+}
 
+function Legend() {
+  return (
       <div className="mt-2.5 flex flex-wrap items-center gap-4 text-xs text-[#6B6965]">
         {(
           [
@@ -101,6 +120,5 @@ export function Calendar({ days, openSlots, channels, posts, selectedDay, onPick
         </span>
         <span className="ml-auto">Dot colour is the tag. One dot is one post.</span>
       </div>
-    </section>
   );
 }
