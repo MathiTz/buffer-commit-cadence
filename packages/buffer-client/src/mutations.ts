@@ -10,6 +10,11 @@ export interface CreatePostArgs {
   dueAt?: string; // ISO 8601 UTC. Omit to add to the channel's queue.
   saveToDraft?: boolean;
   tagIds?: string[];
+  linkedInAnnotations?: LinkedInAnnotationInput[]; // mentions, as positions in `text`
+}
+
+export interface LinkedInAnnotationInput {
+  id: string; entity: string; start: number; length: number; link: string; localizedName: string; vanityName: string;
 }
 
 interface CreatePostResponse {
@@ -27,6 +32,7 @@ export async function createPost(token: string, args: CreatePostArgs): Promise<M
     needsApproval: false,
     assets: [],
     ...(args.tagIds?.length ? { tagIds: args.tagIds } : {}),
+    ...(args.linkedInAnnotations?.length ? { metadata: { linkedin: { annotations: args.linkedInAnnotations } } } : {}),
   };
   const { data } = await gql<CreatePostResponse>(
     token,

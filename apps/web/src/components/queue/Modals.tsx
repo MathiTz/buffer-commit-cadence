@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  STATUS_LABEL, TAGS, isOffTarget, longestParagraph,
+  HASHTAG_SNIPPETS, STATUS_LABEL, TAGS, hasBufferMention, isOffTarget, longestParagraph,
   type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post,
 } from "@cadence/core";
 import { ChannelBadge, IconClose } from "./icons";
@@ -55,10 +55,20 @@ interface EventProps {
 export function EventModal({ post, day, readOnly, needsConfirm, busy, error, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
   const draft = post.status === "draft" && !readOnly;
   const [confirming, setConfirming] = useState(false);
+  const area = useRef<HTMLTextAreaElement>(null);
   const [asDraft, setAsDraft] = useState(false);
   const pill = PILL[post.status];
   const paragraphs = text.split("\n\n");
   const longest = longestParagraph(text);
+  // Insert at the cursor (or replace the selection), then put the cursor after the snippet.
+  const insert = (snippet: string) => {
+    const el = area.current;
+    const [from, to] = el ? [el.selectionStart, el.selectionEnd] : [text.length, text.length];
+    const lead = from > 0 && !/\s$/.test(text.slice(0, from)) ? " " : "";
+    onEdit(text.slice(0, from) + lead + snippet + text.slice(to));
+    const caret = from + lead.length + snippet.length;
+    requestAnimationFrame(() => { el?.focus(); el?.setSelectionRange(caret, caret); });
+  };
   const blocked = !text.trim() || longest > channel.charLimit;
 
   return (
@@ -79,6 +89,7 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, cha
         {draft ? (
           <>
             <textarea
+              ref={area}
               aria-label="Edit post text"
               rows={8}
               value={text}
@@ -88,7 +99,18 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, cha
             <div className="text-xs" style={{ color: longest > channel.charLimit ? "#B3261E" : "#6B6965" }}>
               {longest} of {channel.charLimit}{paragraphs.length > 1 ? " per post" : ""}
             </div>
-            <div className="text-xs text-[#6B6965]">Drafted by AI from your release notes. Nothing is added to Buffer until you approve.</div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs text-[#6B6965]">Insert</span>
+              {[...HASHTAG_SNIPPETS, ...(channel.service === "linkedin" ? ["@Buffer"] : [])].map((snippet) => (
+                <button key={snippet} type="button" onClick={() => insert(snippet)} className="rounded-full border border-[#DEDDDA] bg-white px-2.5 py-0.5 text-xs font-medium hover:bg-[#FAFAF9]">{snippet}</button>
+              ))}
+            </div>
+            {channel.service === "linkedin" && hasBufferMention(text) && (
+              <div className="text-xs text-[#1E6B33]">@Buffer will be tagged as a mention of Buffer&apos;s LinkedIn page.</div>
+            )}
+            <div className="text-xs text-[#6B6965]">
+              {post.kind.startsWith("From your Ideas") ? "From your Buffer Ideas." : "Drafted by AI from your release notes."} Nothing is added to Buffer until you approve.
+            </div>
           </>
         ) : (
           <p className="m-0 whitespace-pre-line text-sm leading-normal">{text}</p>

@@ -96,7 +96,7 @@ export function Queue({ data }: { data: QueueData }) {
     setBusy(true);
     setActionError(null);
     const r = await approvePost({
-      channelId: post.channel, text: post.full, asDraft, tagIds: post.tagIds,
+      channelId: post.channel, service: data.channels.find((c) => c.id === post.channel)?.service ?? "", text: post.full, asDraft, tagIds: post.tagIds,
       dueAt: zonedToUtc(days[post.day]!.iso, post.time, data.timezone),
     });
     setBusy(false);

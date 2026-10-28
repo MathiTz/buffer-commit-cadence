@@ -1,6 +1,7 @@
 "use server";
 
 import { BufferApiError, createIdea, createPost, deletePost } from "@cadence/buffer-client";
+import { linkedInMentions } from "@cadence/core";
 import { invalidate } from "@/lib/cache";
 import { accessToken, currentSid } from "@/lib/session";
 
@@ -20,6 +21,7 @@ const explain = (e: unknown) =>
 
 export interface ApproveInput {
   channelId: string;
+  service: string; // the channel's Buffer service, which decides how mentions are written
   text: string;
   dueAt: string; // ISO 8601 UTC
   asDraft: boolean; // save in Buffer's drafts instead of scheduling
@@ -36,9 +38,12 @@ export async function approvePost(input: ApproveInput): Promise<ActionResult<{ i
   if (Number.isNaN(due.getTime())) return fail("That time isn't valid.");
   if (due.getTime() < Date.now() + 60_000) return fail("That slot has already passed. Pick a later one.");
 
+  // "@Buffer" becomes a real, tagged LinkedIn mention; on other services it stays plain text.
+  const mention = input.service === "linkedin" ? linkedInMentions(text) : { text, annotations: [] };
   try {
     const r = await createPost(s.token, {
-      channelId: input.channelId, text, dueAt: due.toISOString(), saveToDraft: input.asDraft, tagIds: input.tagIds,
+      channelId: input.channelId, text: mention.text, dueAt: due.toISOString(), saveToDraft: input.asDraft, tagIds: input.tagIds,
+      linkedInAnnotations: mention.annotations,
     });
     if (!r.ok) return fail(r.message);
     invalidate(`${s.sid}:queue`);
