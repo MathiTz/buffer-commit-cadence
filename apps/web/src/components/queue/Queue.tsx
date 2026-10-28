@@ -181,6 +181,11 @@ export function Queue({ data }: { data: QueueData }) {
       <Sidebar
         open={sideOpen}
         onToggle={() => setSideOpen((o) => !o)}
+        channels={data.channels}
+        hidden={hidden}
+        onToggleChannel={(id) => setHidden((h) => ({ ...h, [id]: !h[id] }))}
+        posts={allPosts}
+        visiblePosts={posts}
         usage={data.usage}
         live={live}
       />

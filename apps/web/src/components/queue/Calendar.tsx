@@ -43,7 +43,9 @@ export function Calendar({ monthOf, today, loaded, openSlots, channels, posts, s
 
   return (
     <section aria-label="Calendar">
-      <div data-grid className="relative overflow-hidden rounded-[10px] border border-[#EBEAE8]" onMouseLeave={() => { setTip(null); onHoverWeek(null); }}>
+      <div data-grid className="relative" onMouseLeave={() => { setTip(null); onHoverWeek(null); }}>
+        <div className="overflow-x-auto rounded-[10px] border border-[#EBEAE8]">
+        <div className="min-w-[640px]">
         <div className={`${COLS} border-b border-[#EBEAE8] bg-[#FAFAF9]`}>
           {DAYS.map((d) => <div key={d} className="py-1.5 text-center text-[11px] font-medium text-[#6B6965]">{d}</div>)}
         </div>
@@ -74,7 +76,7 @@ export function Calendar({ monthOf, today, loaded, openSlots, channels, posts, s
                       onClick={(e) => { e.stopPropagation(); onPickDay(iso); }}
                       aria-pressed={selected}
                       aria-label={isLoaded ? `${label}, ${plural(here.length)}${open.length ? `, open queue slot at ${open.map((s) => s.time).join(", ")}` : ""}` : `${label}. Load this week`}
-                      className={`border-0 bg-transparent p-0 text-xs ${iso === today ? "rounded-full bg-[#2B2A28] px-1.5 font-semibold text-white" : inMonth ? "text-[#2B2A28]" : "text-[#A8A5A0]"}`}
+                      className={`border-0 text-xs ${iso === today ? "rounded-full bg-[#2B2A28] px-1.5 py-px font-semibold text-white" : `bg-transparent p-0 ${inMonth ? "text-[#2B2A28]" : "text-[#A8A5A0]"}`}`}
                     >
                       {iso.slice(8) === "01" ? `${new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" })} 1` : +iso.slice(8)}
                     </button>
@@ -107,6 +109,8 @@ export function Calendar({ monthOf, today, loaded, openSlots, channels, posts, s
             </div>
           );
         })}
+        </div>
+        </div>
 
         {tip && (
           <div
