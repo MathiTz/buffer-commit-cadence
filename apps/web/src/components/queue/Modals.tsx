@@ -216,3 +216,40 @@ export function BalanceModal({ rows, onClose }: { rows: BalanceRow[]; onClose: (
     </Overlay>
   );
 }
+
+interface IdeaProps {
+  busy: boolean;
+  error: string | null;
+  onSave: (title: string, text: string) => void;
+  onClose: () => void;
+}
+
+export function IdeaModal({ busy, error, onSave, onClose }: IdeaProps) {
+  const [title, setTitle] = useState("");
+  const [text, setText] = useState("");
+  const field = "w-full rounded-lg border border-[#CBC9C5] p-2.5 text-sm text-[#2B2A28]";
+
+  return (
+    <Overlay label="New idea" onClose={onClose}>
+      <Header onClose={onClose}>New idea</Header>
+      <div className="flex flex-col gap-3 px-[18px] py-4">
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-[#6B6965]">
+          Title (optional)
+          <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} className={field} />
+        </label>
+        <label className="flex flex-col gap-1.5 text-xs font-medium text-[#6B6965]">
+          Idea
+          <textarea value={text} onChange={(e) => setText(e.target.value)} rows={12} className={`${field} resize-y leading-normal`} />
+        </label>
+        <div className="text-xs text-[#6B6965]">Saved to your Buffer Ideas. Nothing is scheduled or published until you fill a gap with it and approve.</div>
+        {error && <div className="text-xs text-[#B3261E]">{error}</div>}
+      </div>
+      <div className="flex flex-wrap justify-end gap-2 border-t border-[#EBEAE8] bg-[#FAFAF9] px-[18px] py-3">
+        <button type="button" onClick={onClose} disabled={busy} className={`${btn} h-auto px-3.5 py-[7px]`}>Cancel</button>
+        <button type="button" onClick={() => onSave(title, text)} disabled={busy || !text.trim()} className={`${btnPrimary} px-4 py-[7px] text-[13px] disabled:opacity-50`}>
+          {busy ? "Saving…" : "Save idea"}
+        </button>
+      </div>
+    </Overlay>
+  );
+}

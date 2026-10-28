@@ -31,12 +31,13 @@ export interface Post {
   tagIds?: string[]; // Buffer tag ids to apply when the post is created
 }
 
-export interface Idea { id: string; title: string; tag: Tag; tagIds?: string[] }
+export interface Idea { id: string; title: string; text?: string; tag: Tag; tagIds?: string[] }
 export interface GapSlot { channel: string; day: number; time: string }
 export interface GapDef { id: string; title: string; why: string; canFill: boolean; canSpread: boolean; slots?: GapSlot[] }
 
 export interface QueueData {
   live: boolean; // false = sample data
+  organizationId: string | null;
   timezone: string; // IANA zone the week is shown in
   days: Day[];
   weekLabel: string;

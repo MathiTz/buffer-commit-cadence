@@ -77,6 +77,7 @@ export const SAMPLE_GAPS: GapDef[] = [
 export function sampleQueueData(): QueueData {
   return {
     live: false,
+    organizationId: null,
     timezone: "UTC",
     days: SAMPLE_DAYS,
     weekLabel: SAMPLE_WEEK_LABEL,

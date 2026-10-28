@@ -1,6 +1,6 @@
 "use server";
 
-import { BufferApiError, createPost, deletePost } from "@cadence/buffer-client";
+import { BufferApiError, createIdea, createPost, deletePost } from "@cadence/buffer-client";
 import { invalidate } from "@/lib/cache";
 import { accessToken, currentSid } from "@/lib/session";
 
@@ -57,6 +57,22 @@ export async function undoPost(id: string): Promise<ActionResult<null>> {
     if (!r.ok) return fail(r.message);
     invalidate(`${s.sid}:queue`);
     return { ok: true, value: null };
+  } catch (e) {
+    return fail(explain(e));
+  }
+}
+
+/** Saves an idea in Buffer's Ideas (not scheduled, not published). */
+export async function saveIdea(input: { organizationId: string; title: string; text: string }): Promise<ActionResult<{ id: string }>> {
+  const s = await session();
+  if (!s) return fail("You're signed out. Sign in again.");
+  const text = input.text.trim();
+  if (!text || text.length > 10_000) return fail("The idea is empty or too long.");
+  try {
+    const r = await createIdea(s.token, { organizationId: input.organizationId, title: input.title.trim().slice(0, 200) || undefined, text });
+    if (!r.ok) return fail(r.message);
+    invalidate(`${s.sid}:queue`);
+    return { ok: true, value: { id: r.value.id } };
   } catch (e) {
     return fail(explain(e));
   }

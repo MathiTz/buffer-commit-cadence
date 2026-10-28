@@ -22,7 +22,7 @@ export interface BufferPost {
   channelId: string;
   tags: { id: string; name: string }[];
 }
-export interface BufferIdea { id: string; content: { title: string | null; tags: { id: string; name: string }[] } }
+export interface BufferIdea { id: string; content: { title: string | null; text: string | null; tags: { id: string; name: string }[] } }
 
 export async function getAccount(token: string) {
   const { data, rateLimit } = await gql<{ account: Account }>(
@@ -74,7 +74,7 @@ export async function getIdeas(token: string, organizationId: string, first = 20
     token,
     `query($o: OrganizationId!) {
       ideas(first: ${Math.trunc(first)}, input: { organizationId: $o }) {
-        edges { node { id content { title tags { id name } } } }
+        edges { node { id content { title text tags { id name } } } }
       }
     }`,
     { o: organizationId },

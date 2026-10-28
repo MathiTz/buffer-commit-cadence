@@ -33,7 +33,7 @@ export async function loadQueueData(token: string, requestedWeek: string | undef
   const days = buildDays(start);
 
   const empty: QueueData = {
-    live: true, timezone: tz, days, weekLabel: weekLabel(days), selectedDay: 0, channels: [], posts: [], drafts: [], ideas: [],
+    live: true, organizationId: org?.id ?? null, timezone: tz, days, weekLabel: weekLabel(days), selectedDay: 0, channels: [], posts: [], drafts: [], ideas: [],
     gaps: [], usage: null, hasMore: false, nav: {},
   };
   if (!org) return empty;
@@ -67,13 +67,13 @@ export async function loadQueueData(token: string, requestedWeek: string | undef
   }
 
   const ideas: Idea[] = rawIdeas
-    .filter((i) => i.content.title)
-    .map((i) => ({ id: i.id, title: i.content.title!, tag: tagFromName(i.content.tags.map((t) => t.name)), tagIds: i.content.tags.map((t) => t.id) }));
+    .filter((i) => i.content.title || i.content.text)
+    .map((i) => ({ id: i.id, title: i.content.title || i.content.text!, text: i.content.text ?? undefined, tag: tagFromName(i.content.tags.map((t) => t.name)), tagIds: i.content.tags.map((t) => t.id) }));
 
   const todayIdx = days.findIndex((d) => d.iso === now.date);
   const nowWeek = weekStart(now.date);
   return {
-    live: true, timezone: tz, days, weekLabel: weekLabel(days),
+    live: true, organizationId: org.id, timezone: tz, days, weekLabel: weekLabel(days),
     selectedDay: todayIdx >= 0 ? todayIdx : 0,
     channels, posts, drafts: [], ideas,
     gaps: findGaps({ days, channels, posts, now }),

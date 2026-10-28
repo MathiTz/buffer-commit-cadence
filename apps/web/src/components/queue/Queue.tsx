@@ -4,15 +4,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { tagBalance, zonedToUtc, type GapDef, type Idea, type Post, type QueueData } from "@cadence/core";
-import { approvePost, undoPost } from "@/app/queue/actions";
+import { approvePost, saveIdea, undoPost } from "@/app/queue/actions";
 import { Calendar } from "./Calendar";
-import { BalanceModal, EventModal, GapsModal } from "./Modals";
+import { BalanceModal, EventModal, GapsModal, IdeaModal } from "./Modals";
 import { IconBars, IconInfo, IconNext, IconPrev } from "./icons";
 import { PostsTable } from "./PostsTable";
 import { Sidebar } from "./Sidebar";
 import { btn, btnPrimary, iconBtn } from "./style";
 
-type Modal = { type: "event"; id: string } | { type: "gaps" } | { type: "balance" } | null;
+type Modal = { type: "event"; id: string } | { type: "gaps" } | { type: "balance" } | { type: "idea" } | null;
 type Review = "approved" | "skipped";
 type Toast = { text: string; undoId?: string };
 
@@ -83,7 +83,7 @@ export function Queue({ data }: { data: QueueData }) {
     // An idea becomes a draft for the gap's first open slot. Nothing reaches Buffer until it is approved.
     const slot = gap.slots?.[0];
     if (!slot) return;
-    setExtra((e) => [...e, { id: `local-${Date.now()}`, day: slot.day, channel: slot.channel, tag: idea.tag, tagIds: idea.tagIds, time: slot.time, status: "draft", kind: "From your Ideas", full: idea.title, local: true }]);
+    setExtra((e) => [...e, { id: `local-${Date.now()}`, day: slot.day, channel: slot.channel, tag: idea.tag, tagIds: idea.tagIds, time: slot.time, status: "draft", kind: "From your Ideas", full: idea.text ?? idea.title, local: true }]);
     setDay(slot.day); setScope("day"); setReviewOnly(false); setIdeasOpen(false); close();
   };
   const fillLabel = (g: GapDef) => {
@@ -104,6 +104,17 @@ export function Queue({ data }: { data: QueueData }) {
     setExtra((e) => e.filter((x) => x.id !== post.id));
     close();
     showToast({ text: asDraft ? "Saved as a draft in Buffer." : "Added to your Buffer queue.", undoId: r.value.id });
+    router.refresh();
+  };
+  const saveNewIdea = async (title: string, text: string) => {
+    if (!data.organizationId) return setActionError("No Buffer organization found.");
+    setBusy(true);
+    setActionError(null);
+    const r = await saveIdea({ organizationId: data.organizationId, title, text });
+    setBusy(false);
+    if (!r.ok) return setActionError(r.message);
+    close();
+    showToast({ text: "Idea saved in Buffer." }, 6000);
     router.refresh();
   };
   const undo = async () => {
@@ -145,7 +156,8 @@ export function Queue({ data }: { data: QueueData }) {
             <NavLink href={data.nav.prev} label="Previous week" className={iconBtn}><IconPrev /></NavLink>
             <NavLink href={data.nav.today} className={btn}>Today</NavLink>
             <NavLink href={data.nav.next} label="Next week" className={iconBtn}><IconNext /></NavLink>
-            <button type="button" className={`${btn} ml-1.5`}>From GitHub</button>
+            {live && <button type="button" onClick={() => { setActionError(null); setModal({ type: "idea" }); }} className={`${btn} ml-1.5`}>New idea</button>}
+            <button type="button" className={`${btn} ${live ? "" : "ml-1.5"}`}>From GitHub</button>
             <button type="button" className={`${btnPrimary} h-7 px-3 text-[13px]`}>New post</button>
           </div>
         </div>
@@ -224,6 +236,7 @@ export function Queue({ data }: { data: QueueData }) {
           onClose={close}
         />
       )}
+      {modal?.type === "idea" && <IdeaModal busy={busy} error={actionError} onSave={saveNewIdea} onClose={close} />}
       {modal?.type === "balance" && <BalanceModal rows={tagBalance(posts)} onClose={close} />}
       {toast && (
         <div role="status" className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg bg-[#2B2A28] px-4 py-2.5 text-[13px] text-white shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
