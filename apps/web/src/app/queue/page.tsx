@@ -1,7 +1,10 @@
+import { createHash } from "node:crypto";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { BufferApiError } from "@cadence/buffer-client";
 import { isIsoDate, sampleQueueData } from "@cadence/core";
 import { Queue } from "@/components/queue/Queue";
+import { CachedFallback, SnapshotSaver } from "@/components/queue/QueueCache";
 import { cached } from "@/lib/cache";
 import { loadQueueData } from "@/lib/queue-data";
 import { accessToken, currentSid, isSignedIn } from "@/lib/session";
@@ -27,13 +30,28 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
   if (sample) return <Queue key="sample" data={sampleQueueData()} />;
 
   const sid = await currentSid();
-  const token = await accessToken();
-  if (!sid || !token) redirect("/");
-
+  if (!sid) redirect("/");
   const requested = isIsoDate(week) ? week : undefined;
+  // The browser's saved view is keyed by a hash of the session id, so it never mixes accounts.
+  const cacheKey = `${createHash("sha256").update(sid).digest("hex").slice(0, 16)}:${requested ?? "now"}`;
+  return (
+    <Suspense fallback={<CachedFallback cacheKey={cacheKey} />}>
+      <LiveQueue sid={sid} requested={requested} cacheKey={cacheKey} />
+    </Suspense>
+  );
+}
+
+async function LiveQueue({ sid, requested, cacheKey }: { sid: string; requested: string | undefined; cacheKey: string }) {
+  const token = await accessToken();
+  if (!token) redirect("/");
   try {
     const data = await cached(`${sid}:queue:${requested ?? "now"}`, SNAPSHOT_TTL_MS, () => loadQueueData(token, requested));
-    return <Queue key={data.days[0]!.iso} data={data} />;
+    return (
+      <>
+        <SnapshotSaver cacheKey={cacheKey} data={data} />
+        <Queue key={data.days[0]!.iso} data={data} />
+      </>
+    );
   } catch (e) {
     if (e instanceof BufferApiError && e.status === 429) {
       return <Problem title="Buffer's request limit is reached">It resets within 15 minutes. Reload then.</Problem>;

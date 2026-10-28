@@ -1,5 +1,6 @@
 import { TAGS, TAG_ORDER, type Channel, type Post, type QueueData } from "@cadence/core";
 import { CadenceMark, ChannelBadge, IconSidebar } from "./icons";
+import { clearSnapshots } from "@/lib/snapshot-cache";
 import { iconBtn } from "./style";
 
 interface Props {
@@ -109,7 +110,12 @@ export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, pos
         {open && (
           <div className="mt-3 flex items-center justify-between text-xs text-[#6B6965]">
             <a href={live ? "/queue?sample=1" : "/queue"} className="hover:underline">{live ? "View sample data" : "Use my Buffer data"}</a>
-            <form action="/api/auth/logout" method="post"><button className="hover:underline">Sign out</button></form>
+            <form action="/api/auth/logout" method="post" onSubmit={(e) => {
+              // Wipe the saved views first, then let the sign-out post go through.
+              e.preventDefault();
+              const form = e.currentTarget;
+              void clearSnapshots().finally(() => form.submit());
+            }}><button className="hover:underline">Sign out</button></form>
           </div>
         )}
       </div>
