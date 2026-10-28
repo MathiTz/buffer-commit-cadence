@@ -1,5 +1,5 @@
 import type { Channel, Day, GapDef, GapSlot, Post } from "./queue";
-import { dayIndex } from "./week";
+import { dayIndex, weekdayOf } from "./week";
 
 const CROWDED_AT = 6; // posts in one day
 
@@ -28,7 +28,7 @@ export function findGaps({ days, channels, posts, now }: GapInput): GapDef[] {
     days.forEach((d, di) => {
       if (d.iso < now.date) return;
       for (const slot of ch.schedule) {
-        if (dayIndex(slot.day) !== di) continue;
+        if (dayIndex(slot.day) !== weekdayOf(d.iso)) continue;
         for (const raw of slot.times) {
           const time = raw.slice(0, 5);
           if (d.iso === now.date && time <= now.time) continue;

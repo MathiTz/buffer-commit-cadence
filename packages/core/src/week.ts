@@ -40,10 +40,12 @@ export function addDays(iso: string, n: number): string {
   return toIso(d);
 }
 
+/** Index 0 = Monday, for an ISO date. */
+export const weekdayOf = (iso: string) => (utcNoon(iso).getUTCDay() + 6) % 7;
+
 /** The Monday on or before the given date. */
 export function weekStart(iso: string): string {
-  const dow = (utcNoon(iso).getUTCDay() + 6) % 7; // Monday = 0
-  return addDays(iso, -dow);
+  return addDays(iso, -weekdayOf(iso));
 }
 
 export const isIsoDate = (s: string | undefined): s is string => !!s && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(utcNoon(s).getTime());

@@ -1,8 +1,9 @@
 "use server";
 
 import { BufferApiError, createIdea, createPost, deletePost } from "@cadence/buffer-client";
-import { linkedInMentions, parseChangelog, type PublishMode, type Release } from "@cadence/core";
+import { isIsoDate, linkedInMentions, parseChangelog, type PublishMode, type Release } from "@cadence/core";
 import { cached, invalidate } from "@/lib/cache";
+import { loadQueueData } from "@/lib/queue-data";
 import { accessToken, currentSid } from "@/lib/session";
 
 export type ActionResult<T> = { ok: true; value: T } | { ok: false; message: string };
@@ -121,5 +122,21 @@ export async function loadReleases(input: string): Promise<ActionResult<{ repo: 
     return { ok: true, value: { repo, releases: await cached(`gh:${repo}`, 5 * 60_000, () => fetchReleases(repo)) } };
   } catch (e) {
     return fail(e instanceof Error ? e.message : "Couldn't reach GitHub.");
+  }
+}
+
+/**
+ * Warms the server's snapshot of a week the user is hovering, so opening it is instant.
+ * A workaround: it spends one API request per hovered week, so it stands down when the quota is low.
+ */
+export async function prefetchWeek(week: string): Promise<void> {
+  if (!isIsoDate(week)) return;
+  const s = await session();
+  if (!s) return;
+  try {
+    const data = await cached(`${s.sid}:queue:${week}`, 60_000, () => loadQueueData(s.token, s.sid, week));
+    void data;
+  } catch {
+    /* a failed prefetch just means the real load happens on click */
   }
 }

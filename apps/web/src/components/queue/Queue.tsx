@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { draftPosts, pickSlot, tagBalance, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type PublishMode, type QueueData, type Release } from "@cadence/core";
-import { approvePost, loadReleases, saveIdea, undoPost } from "@/app/queue/actions";
+import { draftPosts, pickSlot, tagBalance, weekStart, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type PublishMode, type QueueData, type Release } from "@cadence/core";
+import { approvePost, loadReleases, prefetchWeek, saveIdea, undoPost } from "@/app/queue/actions";
 import { Calendar } from "./Calendar";
+import { ChannelCards } from "./ChannelCards";
 import { BalanceModal, EventModal, GapsModal, GithubModal, IdeaModal } from "./Modals";
 import { IconBars, IconInfo, IconNext, IconPrev } from "./icons";
 import { PostsTable } from "./PostsTable";
@@ -79,6 +80,22 @@ export function Queue({ data }: { data: QueueData }) {
   };
   const close = () => { setModal(null); setActionError(null); };
   const pickDay = (d: number) => { setDay(d); setReviewOnly(false); };
+  // Only one week has data. Picking a day in another week loads that week (hovering it warms the server first).
+  const pickIso = (iso: string) => {
+    const i = days.findIndex((d) => d.iso === iso);
+    if (i >= 0) return pickDay(i);
+    if (live) router.push(`/queue?week=${weekStart(iso)}&day=${iso}`);
+  };
+  const warmed = useRef(new Set<string>());
+  const warmTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(warmTimer.current), []);
+  const hoverWeek = (monday: string | null) => {
+    clearTimeout(warmTimer.current);
+    // Stands down when most of the API quota is spent.
+    const lowQuota = data.usage ? data.usage.used / data.usage.limit > 0.7 : false;
+    if (!live || !monday || warmed.current.has(monday) || lowQuota) return;
+    warmTimer.current = setTimeout(() => { warmed.current.add(monday); void prefetchWeek(monday); }, 400);
+  };
   const review = (id: string, outcome: Review) => { setReviews((r) => ({ ...r, [id]: outcome })); close(); };
   const useIdea = (idea: Idea, gap: GapDef) => {
     // An idea becomes a draft for the gap's first open slot. Nothing reaches Buffer until it is approved.
@@ -164,11 +181,6 @@ export function Queue({ data }: { data: QueueData }) {
       <Sidebar
         open={sideOpen}
         onToggle={() => setSideOpen((o) => !o)}
-        channels={data.channels}
-        hidden={hidden}
-        onToggleChannel={(id) => setHidden((h) => ({ ...h, [id]: !h[id] }))}
-        posts={allPosts}
-        visiblePosts={posts}
         usage={data.usage}
         live={live}
       />
@@ -183,9 +195,9 @@ export function Queue({ data }: { data: QueueData }) {
             {!live && <span className="rounded-full bg-[#EDECE9] px-2 py-0.5 text-[11px] font-medium text-[#6B6965]">Sample data</span>}
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
-            <NavLink href={data.nav.prev} label="Previous two weeks" className={iconBtn}><IconPrev /></NavLink>
+            <NavLink href={data.nav.prev} label="Previous week" className={iconBtn}><IconPrev /></NavLink>
             <NavLink href={data.nav.today} className={btn}>Today</NavLink>
-            <NavLink href={data.nav.next} label="Next two weeks" className={iconBtn}><IconNext /></NavLink>
+            <NavLink href={data.nav.next} label="Next week" className={iconBtn}><IconNext /></NavLink>
             {live && <button type="button" onClick={() => { setActionError(null); setModal({ type: "idea" }); }} className={`${btn} ml-1.5`}>New idea</button>}
             <button type="button" onClick={() => setModal({ type: "github" })} className={`${btn} ${live ? "" : "ml-1.5"}`}>From GitHub</button>
             <button type="button" className={`${btnPrimary} h-7 px-3 text-[13px]`}>New post</button>
@@ -219,8 +231,26 @@ export function Queue({ data }: { data: QueueData }) {
             </p>
           )}
 
-          <Calendar days={days} openSlots={gaps.flatMap((g) => g.slots ?? [])} channels={channels} posts={posts} selectedDay={reviewOnly ? null : day} onPickDay={pickDay} />
-          {data.hasMore && <p className="m-0 -mt-3 text-xs text-[#6B6965]">This range has more posts than were loaded. Showing the first {data.posts.length}.</p>}
+          <Calendar
+            monthOf={days[3]!.iso}
+            today={zonedParts(new Date(), data.timezone).date}
+            loaded={days}
+            openSlots={gaps.flatMap((g) => g.slots ?? []).filter((s) => !hidden[s.channel])}
+            channels={channels}
+            posts={posts}
+            selectedIso={reviewOnly ? null : days[day]!.iso}
+            onPickDay={pickIso}
+            onOpenPost={(id) => { setActionError(null); setModal({ type: "event", id }); }}
+            onHoverWeek={hoverWeek}
+          />
+          <ChannelCards
+            channels={data.channels}
+            hidden={hidden}
+            onToggle={(id) => setHidden((h) => ({ ...h, [id]: !h[id] }))}
+            posts={allPosts}
+            openSlots={gaps.flatMap((g) => g.slots ?? [])}
+          />
+          {data.hasMore && <p className="m-0 -mt-3 text-xs text-[#6B6965]">This week has more posts than were loaded. Showing the first {data.posts.length}.</p>}
 
           <PostsTable
             days={days}

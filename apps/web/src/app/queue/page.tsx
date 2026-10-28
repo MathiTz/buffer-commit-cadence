@@ -24,9 +24,9 @@ function Problem({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export default async function QueuePage({ searchParams }: { searchParams: Promise<{ week?: string; sample?: string }> }) {
+export default async function QueuePage({ searchParams }: { searchParams: Promise<{ week?: string; day?: string; sample?: string }> }) {
   if (!(await isSignedIn())) redirect("/");
-  const { week, sample } = await searchParams;
+  const { week, day, sample } = await searchParams;
   if (sample) return <Queue key="sample" data={sampleQueueData()} />;
 
   const sid = await currentSid();
@@ -36,16 +36,19 @@ export default async function QueuePage({ searchParams }: { searchParams: Promis
   const cacheKey = `${createHash("sha256").update(sid).digest("hex").slice(0, 16)}:${requested ?? "now"}`;
   return (
     <Suspense fallback={<CachedFallback cacheKey={cacheKey} />}>
-      <LiveQueue sid={sid} requested={requested} cacheKey={cacheKey} />
+      <LiveQueue sid={sid} requested={requested} day={isIsoDate(day) ? day : undefined} cacheKey={cacheKey} />
     </Suspense>
   );
 }
 
-async function LiveQueue({ sid, requested, cacheKey }: { sid: string; requested: string | undefined; cacheKey: string }) {
+async function LiveQueue({ sid, requested, day, cacheKey }: { sid: string; requested: string | undefined; day: string | undefined; cacheKey: string }) {
   const token = await accessToken();
   if (!token) redirect("/");
   try {
-    const data = await cached(`${sid}:queue:${requested ?? "now"}`, SNAPSHOT_TTL_MS, () => loadQueueData(token, requested));
+    const loaded = await cached(`${sid}:queue:${requested ?? "now"}`, SNAPSHOT_TTL_MS, () => loadQueueData(token, sid, requested));
+    // The picked day isn't part of the cached week.
+    const picked = loaded.days.findIndex((d) => d.iso === day);
+    const data = picked >= 0 ? { ...loaded, selectedDay: picked } : loaded;
     return (
       <>
         <SnapshotSaver cacheKey={cacheKey} data={data} />
