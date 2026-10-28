@@ -1,10 +1,10 @@
 import { cached } from "./cache";
 import {
-  getAccount, getChannels, getIdeas, getPosts, type BufferPost, type RateLimit,
+  getAccount, getChannels, getIdeas, getPosts, getTags, type BufferPost, type RateLimit,
 } from "@cadence/buffer-client";
 import {
   addDays, buildDays, dayIndex, findGaps, serviceInfo, tagFromName, weekLabel, weekStart, zonedParts,
-  type Channel, type Idea, type Post, type PostStatus, type QueueData,
+  type Channel, type Idea, type Post, type PostStatus, type QueueData, type TagOption,
 } from "@cadence/core";
 
 const STATUS: Record<BufferPost["status"], PostStatus> = {
@@ -30,7 +30,7 @@ async function loadBase(token: string) {
   const { account } = await getAccount(token);
   const org = account.organizations[0];
   const timezone = account.timezone || "UTC";
-  if (!org) return { orgId: null, timezone, channels: [] as Channel[], ideas: [] as Idea[], rateLimit: null as RateLimit | null };
+  if (!org) return { orgId: null, timezone, channels: [] as Channel[], ideas: [] as Idea[], tags: [] as TagOption[], rateLimit: null as RateLimit | null };
 
   const { channels: raw } = await getChannels(token, org.id);
   const channels: Channel[] = raw
@@ -46,7 +46,8 @@ async function loadBase(token: string) {
   const ideas: Idea[] = rawIdeas
     .filter((i) => i.content.title || i.content.text)
     .map((i) => ({ id: i.id, title: i.content.title || i.content.text!, text: i.content.text ?? undefined, tag: tagFromName(i.content.tags.map((t) => t.name)), tagIds: i.content.tags.map((t) => t.id) }));
-  return { orgId: org.id, timezone, channels, ideas, rateLimit };
+  const { tags } = await getTags(token, org.id);
+  return { orgId: org.id, timezone, channels, ideas, tags: tags.map((t) => ({ id: t.id, name: t.name })), rateLimit };
 }
 
 const BASE_TTL_MS = 5 * 60_000;
@@ -54,7 +55,7 @@ const BASE_TTL_MS = 5 * 60_000;
 /** One week of the user's real Buffer queue. The first load costs four API requests; later weeks cost one. */
 export async function loadQueueData(token: string, sid: string, requestedWeek: string | undefined): Promise<QueueData> {
   const base = await cached(`${sid}:queue-base`, BASE_TTL_MS, () => loadBase(token));
-  const { timezone: tz, channels, ideas } = base;
+  const { timezone: tz, channels, ideas, tags } = base;
   const now = zonedParts(new Date(), tz);
   const start = weekStart(requestedWeek ?? now.date);
   const days = buildDays(start);
@@ -67,7 +68,7 @@ export async function loadQueueData(token: string, sid: string, requestedWeek: s
   };
   const empty: QueueData = {
     live: true, organizationId: base.orgId, timezone: tz, days, weekLabel: weekLabel(days), selectedDay: todayIdx >= 0 ? todayIdx : 0,
-    channels, posts: [], drafts: [], ideas, gaps: [], usage: usageFrom(base.rateLimit), hasMore: false, nav,
+    channels, posts: [], drafts: [], ideas, tags, gaps: [], usage: usageFrom(base.rateLimit), hasMore: false, nav,
   };
   if (!base.orgId) return empty;
 
@@ -82,7 +83,7 @@ export async function loadQueueData(token: string, sid: string, requestedWeek: s
     if (di < 0 || !channels.some((c) => c.id === p.channelId)) continue;
     posts.push({
       id: p.id, day: di, channel: p.channelId, tag: tagFromName(p.tags.map((t) => t.name)), time: local.time,
-      full: p.text, status: STATUS[p.status] ?? "scheduled", kind: "",
+      full: p.text, status: STATUS[p.status] ?? "scheduled", kind: "", tagIds: p.tags.map((t) => t.id),
     });
   }
 

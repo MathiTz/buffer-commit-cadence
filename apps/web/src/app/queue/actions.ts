@@ -1,7 +1,7 @@
 "use server";
 
-import { BufferApiError, createIdea, createPost, deletePost } from "@cadence/buffer-client";
-import { isIsoDate, linkedInMentions, parseChangelog, type PublishMode, type Release } from "@cadence/core";
+import { BufferApiError, createIdea, createPost, createTag, deletePost, editPostTags, getTags } from "@cadence/buffer-client";
+import { TAGS, isIsoDate, linkedInMentions, parseChangelog, type PublishMode, type Release, type Tag } from "@cadence/core";
 import { cached, invalidate } from "@/lib/cache";
 import { loadQueueData } from "@/lib/queue-data";
 import { accessToken, currentSid } from "@/lib/session";
@@ -27,6 +27,45 @@ export interface ApproveInput {
   dueAt: string; // ISO 8601 UTC: the slot the post is scheduled for (ignored for "now")
   mode: PublishMode;
   tagIds?: string[];
+  organizationId?: string | null;
+  tag?: Tag; // picked in the confirm step; replaces tagIds. Created in Buffer if it does not exist yet.
+}
+
+/** The id of the Buffer tag for one of the four planning tags, creating it on first use. */
+async function tagIdFor(token: string, organizationId: string, tag: Exclude<Tag, "untagged">): Promise<string> {
+  const { name, color } = TAGS[tag];
+  const { tags } = await getTags(token, organizationId);
+  const found = tags.find((t) => t.name.trim().toLowerCase() === name.toLowerCase());
+  if (found) return found.id;
+  const made = await createTag(token, { organizationId, name, color });
+  if (!made.ok) throw new Error(made.message);
+  return made.value.id;
+}
+
+export interface SetTagInput {
+  postId: string;
+  organizationId: string | null;
+  text: string; // the post's current text; Buffer needs it on every edit
+  tag: Tag;
+  keepIds: string[]; // the post's other tags, which stay as they are
+}
+
+/** Replaces the planning tag on an existing post. Only the tags change, never its text or time. */
+export async function setPostTag(input: SetTagInput): Promise<ActionResult<null>> {
+  const s = await session();
+  if (!s) return fail("You're signed out. Sign in again.");
+  if (!input.organizationId) return fail("No Buffer organization found.");
+  if (!(input.tag in TAGS) || input.keepIds.length > 20) return fail("That tag isn't valid.");
+  if (!input.text.trim()) return fail("This post has no text to keep.");
+  try {
+    const own = input.tag === "untagged" ? [] : [await tagIdFor(s.token, input.organizationId, input.tag)];
+    const r = await editPostTags(s.token, input.postId, input.text, [...input.keepIds, ...own]);
+    if (!r.ok) return fail(r.message);
+    invalidate(`${s.sid}:queue`);
+    return { ok: true, value: null };
+  } catch (e) {
+    return fail(explain(e));
+  }
 }
 
 /** The one place a user's approval becomes a real Buffer post. Called only from the confirm step. */
@@ -41,11 +80,21 @@ export async function approvePost(input: ApproveInput): Promise<ActionResult<{ i
     if (due.getTime() < Date.now() + 60_000) return fail("That slot has already passed. Choose Post now, or pick a later slot.");
   }
 
+  let tagIds = input.tagIds;
+  if (input.tag && input.tag !== "untagged") {
+    if (!input.organizationId) return fail("No Buffer organization found.");
+    try {
+      tagIds = [await tagIdFor(s.token, input.organizationId, input.tag)];
+    } catch (e) {
+      return fail(explain(e));
+    }
+  }
+
   // "@Buffer" becomes a real, tagged LinkedIn mention; on other services it stays plain text.
   const mention = input.service === "linkedin" ? linkedInMentions(text) : { text, annotations: [] };
   try {
     const r = await createPost(s.token, {
-      channelId: input.channelId, text: mention.text, tagIds: input.tagIds,
+      channelId: input.channelId, text: mention.text, tagIds,
       ...(input.mode === "now" ? { shareNow: true } : { dueAt: due.toISOString(), saveToDraft: input.mode === "draft" }),
       linkedInAnnotations: mention.annotations,
     });

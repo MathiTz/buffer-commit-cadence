@@ -31,6 +31,9 @@ export interface Post {
   tagIds?: string[]; // Buffer tag ids to apply when the post is created
 }
 
+/** A tag that exists in the Buffer organization. */
+export interface TagOption { id: string; name: string }
+
 /** What approving a draft does: queue it for its slot, save it as a Buffer draft, or publish it immediately. */
 export type PublishMode = "schedule" | "draft" | "now";
 
@@ -39,6 +42,7 @@ export interface GapSlot { channel: string; day: number; time: string }
 export interface GapDef { id: string; title: string; why: string; canFill: boolean; canSpread: boolean; slots?: GapSlot[] }
 
 export interface QueueData {
+  tags: TagOption[]; // the organization's Buffer tags (empty for sample data)
   live: boolean; // false = sample data
   organizationId: string | null;
   timezone: string; // IANA zone the week is shown in

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { draftPosts, pickSlot, tagBalance, weekStart, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type PublishMode, type QueueData, type Release } from "@cadence/core";
-import { approvePost, loadReleases, prefetchWeek, saveIdea, undoPost } from "@/app/queue/actions";
+import { TAGS, draftPosts, pickSlot, tagBalance, weekStart, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type PublishMode, type QueueData, type Release, type Tag } from "@cadence/core";
+import { approvePost, loadReleases, prefetchWeek, saveIdea, setPostTag, undoPost } from "@/app/queue/actions";
 import { Calendar } from "./Calendar";
 import { ChannelCards } from "./ChannelCards";
 import { BalanceModal, EventModal, GapsModal, GithubModal, IdeaModal } from "./Modals";
@@ -41,6 +41,7 @@ export function Queue({ data }: { data: QueueData }) {
   const [edits, setEdits] = useState<Record<string, string>>({});
   const [dismissed, setDismissed] = useState<Record<string, boolean>>({});
   const [extra, setExtra] = useState<Post[]>([]);
+  const [tagEdits, setTagEdits] = useState<Record<string, Tag>>({}); // tags picked on drafts, applied when approved
   const [ideasOpen, setIdeasOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function Queue({ data }: { data: QueueData }) {
   // Sample drafts: skipped ones leave the list, approved ones become scheduled, edits replace the text.
   const drafts = [...data.drafts, ...extra]
     .filter((d) => reviews[d.id] !== "skipped")
-    .map((d) => ({ ...d, full: edits[d.id] ?? d.full, status: reviews[d.id] === "approved" ? ("scheduled" as const) : d.status }));
+    .map((d) => ({ ...d, tag: tagEdits[d.id] ?? d.tag, full: edits[d.id] ?? d.full, status: reviews[d.id] === "approved" ? ("scheduled" as const) : d.status }));
   const allPosts = [...data.posts, ...drafts];
   const posts = allPosts.filter((p) => !hidden[p.channel]);
   const channels = data.channels.filter((c) => !hidden[c.id]);
@@ -114,7 +115,7 @@ export function Queue({ data }: { data: QueueData }) {
     setBusy(true);
     setActionError(null);
     const r = await approvePost({
-      channelId: post.channel, service: data.channels.find((c) => c.id === post.channel)?.service ?? "", text: post.full, mode, tagIds: post.tagIds,
+      channelId: post.channel, service: data.channels.find((c) => c.id === post.channel)?.service ?? "", text: post.full, mode, tagIds: post.tagIds, organizationId: data.organizationId, tag: tagEdits[post.id],
       dueAt: zonedToUtc(days[post.day]!.iso, post.time, data.timezone),
     });
     setBusy(false);
@@ -162,6 +163,18 @@ export function Queue({ data }: { data: QueueData }) {
     setExtra((e) => e.filter((x) => x.id !== post.id));
     close();
     showToast({ text: "Saved to your Buffer Ideas." }, 6000);
+    router.refresh();
+  };
+  // Draft tags are held here until approval. A post that already exists in Buffer is retagged there, and only its tags change.
+  const tagPost = async (post: Post, tag: Tag) => {
+    if (!live || post.local) return setTagEdits((t) => ({ ...t, [post.id]: tag }));
+    const planning = new Set(data.tags.filter((t) => Object.values(TAGS).some((x) => x.name.toLowerCase() === t.name.trim().toLowerCase())).map((t) => t.id));
+    setBusy(true);
+    setActionError(null);
+    const r = await setPostTag({ postId: post.id, organizationId: data.organizationId, text: post.full, tag, keepIds: (post.tagIds ?? []).filter((id) => !planning.has(id)) });
+    setBusy(false);
+    if (!r.ok) return setActionError(r.message);
+    showToast({ text: tag === "untagged" ? "Tag removed in Buffer." : `Tagged ${TAGS[tag].name} in Buffer.` }, 6000);
     router.refresh();
   };
   const undo = async () => {
@@ -285,6 +298,8 @@ export function Queue({ data }: { data: QueueData }) {
           onEdit={(t) => setEdits((e) => ({ ...e, [open.id]: t }))}
           onApprove={(mode) => approve(open, mode)}
           onSaveIdea={live && open.local ? () => draftToIdea(open) : undefined}
+          onTag={open.status === "sent" ? undefined : (t) => tagPost(open, t)}
+          tagNote={live ? (open.local ? "The tag is created in Buffer the first time it is used." : "Saves to Buffer right away.") : undefined}
           onSkip={() => review(open.id, "skipped")}
           onClose={close}
         />

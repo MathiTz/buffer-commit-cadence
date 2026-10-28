@@ -87,3 +87,40 @@ export async function createIdea(token: string, args: CreateIdeaArgs): Promise<M
   const id = r.id ?? r.idea?.id;
   return id ? { ok: true, value: { id } } : { ok: false, message: r.message ?? `Buffer returned ${r.__typename}` };
 }
+
+/** Creates a tag in the organization. */
+export async function createTag(token: string, args: { organizationId: string; name: string; color: string }): Promise<MutationOutcome<{ id: string; name: string; color: string }>> {
+  const { data } = await gql<{ createTag: { __typename: string; tag?: { id: string; name: string; color: string }; message?: string } }>(
+    token,
+    `mutation($input: CreateTagInput!) {
+      createTag(input: $input) {
+        __typename
+        ... on TagActionSuccess { tag { id name color } }
+        ... on MutationError { message }
+      }
+    }`,
+    { input: { organizationId: args.organizationId, tag: { name: args.name, color: args.color } } },
+  );
+  const r = data.createTag;
+  return r.tag ? { ok: true, value: r.tag } : { ok: false, message: r.message ?? `Buffer returned ${r.__typename}` };
+}
+
+/**
+ * Replaces the tags on a post. Buffer requires the text on every edit, so pass the post's current text:
+ * its schedule and LinkedIn mentions are left as they are (checked against the live API).
+ */
+export async function editPostTags(token: string, id: string, text: string, tagIds: string[]): Promise<MutationOutcome<{ id: string }>> {
+  const { data } = await gql<{ editPost: { __typename: string; post?: { id: string }; message?: string } }>(
+    token,
+    `mutation($input: EditPostInput!) {
+      editPost(input: $input) {
+        __typename
+        ... on PostActionSuccess { post { id } }
+        ... on MutationError { message }
+      }
+    }`,
+    { input: { id, text, tagIds } },
+  );
+  const r = data.editPost;
+  return r.post ? { ok: true, value: r.post } : { ok: false, message: r.message ?? `Buffer returned ${r.__typename}` };
+}

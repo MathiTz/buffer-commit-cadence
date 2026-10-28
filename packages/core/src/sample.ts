@@ -90,5 +90,6 @@ export function sampleQueueData(): QueueData {
     usage: { used: 34, limit: 250, window: "today" },
     hasMore: false,
     nav: {},
+    tags: [],
   };
 }

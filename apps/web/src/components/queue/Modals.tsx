@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
-  HASHTAG_SNIPPETS, STATUS_LABEL, TAGS, hasBufferMention, isOffTarget, longestParagraph,
-  type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post, type PublishMode, type Release,
+  HASHTAG_SNIPPETS, STATUS_LABEL, TAGS, TAG_ORDER, hasBufferMention, isOffTarget, longestParagraph,
+  type BalanceRow, type Channel, type Day, type GapDef, type Idea, type Post, type PublishMode, type Release, type Tag,
 } from "@cadence/core";
 import { ChannelBadge, IconClose } from "./icons";
 import { btn, btnPrimary, iconBtn, PILL } from "./style";
@@ -49,11 +49,13 @@ interface EventProps {
   onEdit: (text: string) => void;
   onApprove: (mode: PublishMode) => void;
   onSaveIdea?: () => void; // keep a local draft as a Buffer Idea instead of posting it
+  onTag?: (tag: Tag) => void; // present when this post's tag can be changed
+  tagNote?: string;
   onSkip: () => void;
   onClose: () => void;
 }
 
-export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onSaveIdea, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
+export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onSaveIdea, onTag, tagNote, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
   const draft = post.status === "draft" && !readOnly;
   const [confirming, setConfirming] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -82,11 +84,32 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onS
       <div className="flex flex-col gap-3 px-[18px] py-4">
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[#6B6965]">
           <span>{day.full} at {post.time}</span>
-          <span className="flex items-center gap-1.5">
-            <span className="block size-2 rounded-full" style={{ background: TAGS[post.tag].color }} />{TAGS[post.tag].name}
-          </span>
+          {!onTag && (
+            <span className="flex items-center gap-1.5">
+              <span className="block size-2 rounded-full" style={{ background: TAGS[post.tag].color }} />{TAGS[post.tag].name}
+            </span>
+          )}
           {post.kind && <span>{post.kind}</span>}
         </div>
+        {onTag && (
+          <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Tag">
+            <span className="text-xs text-[#6B6965]">Tag</span>
+            {TAG_ORDER.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => onTag(t)}
+                disabled={busy}
+                aria-pressed={post.tag === t}
+                className="flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium disabled:opacity-50"
+                style={{ borderColor: post.tag === t ? TAGS[t].color : "#DEDDDA", background: post.tag === t ? "#FAFAF9" : "#FFFFFF" }}
+              >
+                <span className="block size-2 rounded-full" style={{ background: TAGS[t].color }} />{t === "untagged" ? "None" : TAGS[t].name}
+              </button>
+            ))}
+            {tagNote && <span className="w-full text-xs text-[#6B6965]">{tagNote}</span>}
+          </div>
+        )}
         {draft ? (
           <>
             <textarea

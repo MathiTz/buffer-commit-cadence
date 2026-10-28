@@ -83,3 +83,17 @@ export async function getIdeas(token: string, organizationId: string, first = 20
 }
 
 export type { RateLimit };
+
+export interface BufferTag { id: string; name: string; color: string }
+
+/** The organization's tags. */
+export async function getTags(token: string, organizationId: string, first = 100) {
+  const { data, rateLimit } = await gql<{ tagsV2: { edges: { node: BufferTag }[] } }>(
+    token,
+    `query($o: OrganizationId!) {
+      tagsV2(first: ${Math.trunc(first)}, input: { organizationId: $o }) { edges { node { id name color } } }
+    }`,
+    { o: organizationId },
+  );
+  return { tags: data.tagsV2.edges.map((e) => e.node), rateLimit };
+}
