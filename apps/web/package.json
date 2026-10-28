@@ -12,6 +12,7 @@
     "@cadence/buffer-client": "workspace:*",
     "@cadence/core": "workspace:*",
     "next": "^16.4.3",
+    "postgres": "^3.4.9",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },

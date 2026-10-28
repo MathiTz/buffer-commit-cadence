@@ -1,8 +1,9 @@
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { memoryTokenStore, type TokenSet, type TokenStore } from "@cadence/buffer-client";
+import type { TokenSet, TokenStore } from "@cadence/buffer-client";
 import { seal, unseal } from "./crypto";
 import { sessionSecret } from "./env";
+import { pgTokenStore } from "./pg-token-store";
 
 type Book = Record<string, TokenSet>;
 
@@ -39,5 +40,20 @@ export function fileTokenStore(): TokenStore {
   };
 }
 
-// Serverless hosts have no durable disk, so memory is only a placeholder there until the DB store lands.
-export const createTokenStore = (): TokenStore => (process.env.VERCEL ? memoryTokenStore() : fileTokenStore());
+function choose(): TokenStore {
+  if (process.env.DATABASE_URL) return pgTokenStore(process.env.DATABASE_URL);
+  if (process.env.VERCEL) throw new Error("DATABASE_URL is not set. Add a Postgres database and its connection string to this project's env vars.");
+  return fileTokenStore();
+}
+
+/** Postgres when DATABASE_URL is set, the sealed local file otherwise. Chosen on first use, not at import. */
+export function createTokenStore(): TokenStore {
+  let impl: TokenStore | undefined;
+  const store = () => (impl ??= choose());
+  return {
+    get: (key) => store().get(key),
+    set: (key, tokens) => store().set(key, tokens),
+    delete: (key) => store().delete(key),
+    lock: (key, fn) => (store().lock ? store().lock!(key, fn) : fn()),
+  };
+}

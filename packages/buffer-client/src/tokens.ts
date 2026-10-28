@@ -6,6 +6,9 @@ export interface TokenStore {
   get(key: string): Promise<TokenSet | null>;
   set(key: string, tokens: TokenSet): Promise<void>;
   delete(key: string): Promise<void>;
+  // Serializes work on one key across processes. Serverless runs many instances, and refresh
+  // tokens are single-use, so two instances must never spend the same one.
+  lock?<T>(key: string, fn: () => Promise<T>): Promise<T>;
 }
 
 // Refresh tokens are single-use and rotate: reusing an old one revokes the whole grant.
@@ -21,13 +24,16 @@ export async function getFreshTokens(cfg: OAuthConfig, store: TokenStore, key: s
 
   let pending = inflight.get(key);
   if (!pending) {
-    pending = refreshTokens(cfg, current.refreshToken)
-      .then(async (next) => {
-        const merged = { ...next, refreshToken: next.refreshToken ?? current.refreshToken };
-        await store.set(key, merged);
-        return merged;
-      })
-      .finally(() => inflight.delete(key));
+    const refresh = async (): Promise<TokenSet> => {
+      const latest = (await store.get(key)) ?? current; // another instance may have rotated it already
+      if (latest.expiresAt - SKEW_MS > Date.now()) return latest;
+      if (!latest.refreshToken) throw new Error("access token expired and no refresh token (offline_access missing)");
+      const next = await refreshTokens(cfg, latest.refreshToken);
+      const merged = { ...next, refreshToken: next.refreshToken ?? latest.refreshToken };
+      await store.set(key, merged);
+      return merged;
+    };
+    pending = (store.lock ? store.lock(key, refresh) : refresh()).finally(() => inflight.delete(key));
     inflight.set(key, pending);
   }
   return pending;
