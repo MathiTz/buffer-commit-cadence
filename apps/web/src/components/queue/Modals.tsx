@@ -49,13 +49,14 @@ interface EventProps {
   onEdit: (text: string) => void;
   onApprove: (mode: PublishMode) => void;
   onSaveIdea?: () => void; // keep a local draft as a Buffer Idea instead of posting it
+  schedule?: { channels: Channel[]; days: Day[]; onChange: (patch: { channel?: string; day?: number; time?: string }) => void }; // present while a draft can still be moved
   onTag?: (tag: Tag) => void; // present when this post's tag can be changed
   tagNote?: string;
   onSkip: () => void;
   onClose: () => void;
 }
 
-export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onSaveIdea, onTag, tagNote, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
+export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onSaveIdea, onTag, tagNote, schedule, channel, text, onEdit, onApprove, onSkip, onClose }: EventProps) {
   const draft = post.status === "draft" && !readOnly;
   const [confirming, setConfirming] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
@@ -83,7 +84,19 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onS
       </Header>
       <div className="flex flex-col gap-3 px-[18px] py-4">
         <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[#6B6965]">
-          <span>{day.full} at {post.time}</span>
+          {schedule && draft ? (
+            <span className="flex flex-wrap items-center gap-1.5 text-xs">
+              <select aria-label="Channel" value={post.channel} onChange={(e) => schedule.onChange({ channel: e.target.value })} className="rounded-md border border-[#DEDDDA] bg-white px-1.5 py-1">
+                {schedule.channels.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <select aria-label="Day" value={post.day} onChange={(e) => schedule.onChange({ day: Number(e.target.value) })} className="rounded-md border border-[#DEDDDA] bg-white px-1.5 py-1">
+                {schedule.days.map((d, i) => <option key={d.iso} value={i}>{d.full}</option>)}
+              </select>
+              <input aria-label="Time" type="time" value={post.time} onChange={(e) => e.target.value && schedule.onChange({ time: e.target.value })} className="rounded-md border border-[#DEDDDA] bg-white px-1.5 py-1" />
+            </span>
+          ) : (
+            <span>{day.full} at {post.time}</span>
+          )}
           {!onTag && (
             <span className="flex items-center gap-1.5">
               <span className="block size-2 rounded-full" style={{ background: TAGS[post.tag].color }} />{TAGS[post.tag].name}
@@ -133,7 +146,7 @@ export function EventModal({ post, day, readOnly, needsConfirm, busy, error, onS
               <div className="text-xs text-[#1E6B33]">@Buffer will be tagged as a mention of Buffer&apos;s LinkedIn page.</div>
             )}
             <div className="text-xs text-[#6B6965]">
-              {post.kind.startsWith("From your Ideas") ? "From your Buffer Ideas." : post.kind.startsWith("From GitHub") ? "Drafted from your GitHub release notes." : "Drafted from your release notes."} Nothing is added to Buffer until you approve.
+              {post.kind.startsWith("New post") ? "Your new post." : post.kind.startsWith("From your Ideas") ? "From your Buffer Ideas." : post.kind.startsWith("From GitHub") ? "Drafted from your GitHub release notes." : "Drafted from your release notes."} Nothing is added to Buffer until you approve.
             </div>
           </>
         ) : (

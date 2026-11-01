@@ -79,7 +79,20 @@ export function Queue({ data }: { data: QueueData }) {
     setToast(t);
     toastTimer.current = setTimeout(() => setToast(null), ms);
   };
-  const close = () => { setModal(null); setActionError(null); };
+  // An untouched new post that is closed without text is dropped rather than left as an empty draft.
+  const close = () => {
+    setModal(null);
+    setActionError(null);
+    setExtra((e) => e.filter((x) => !(x.kind === "New post" && !edits[x.id]?.trim())));
+  };
+  const newPost = () => {
+    const ch = data.channels.find((c) => !c.paused) ?? data.channels[0];
+    if (!ch) return;
+    const id = `new-${Date.now()}`;
+    setExtra((e) => [...e, { id, day, channel: ch.id, tag: "untagged", time: "10:00", status: "draft", kind: "New post", full: "", local: true }]);
+    setActionError(null);
+    setModal({ type: "event", id });
+  };
   const pickDay = (d: number) => { setDay(d); setReviewOnly(false); };
   // Only one week has data. Picking a day in another week loads that week (hovering it warms the server first).
   const pickIso = (iso: string) => {
@@ -218,7 +231,7 @@ export function Queue({ data }: { data: QueueData }) {
             <NavLink href={data.nav.next} label="Next week" className={iconBtn}><IconNext /></NavLink>
             {live && <button type="button" onClick={() => { setActionError(null); setModal({ type: "idea" }); }} className={`${btn} ml-1.5`}>New idea</button>}
             <button type="button" onClick={() => setModal({ type: "github" })} className={`${btn} ${live ? "" : "ml-1.5"}`}>From GitHub</button>
-            <button type="button" className={`${btnPrimary} h-7 px-3 text-[13px]`}>New post</button>
+            <button type="button" onClick={newPost} disabled={data.channels.length === 0} className={`${btnPrimary} h-7 px-3 text-[13px] disabled:opacity-50`}>New post</button>
           </div>
         </div>
 
@@ -299,6 +312,7 @@ export function Queue({ data }: { data: QueueData }) {
           onApprove={(mode) => approve(open, mode)}
           onSaveIdea={live && open.local ? () => draftToIdea(open) : undefined}
           onTag={(t) => tagPost(open, t)}
+          schedule={open.local ? { channels: data.channels.filter((c) => !c.paused), days, onChange: (p) => setExtra((e) => e.map((x) => (x.id === open.id ? { ...x, ...p } : x))) } : undefined}
           tagNote={live ? (open.local ? "The tag is created in Buffer the first time it is used." : "Saves to Buffer right away.") : undefined}
           onSkip={() => review(open.id, "skipped")}
           onClose={close}
