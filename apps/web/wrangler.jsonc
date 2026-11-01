@@ -1,0 +1,12 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cadence",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "cadence" }],
+  // Token store. Wrangler creates this database on the first deploy; the app creates its tables on first use.
+  "d1_databases": [{ "binding": "DB", "database_name": "cadence" }],
+  "observability": { "enabled": true }
+}

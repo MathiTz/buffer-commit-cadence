@@ -1,0 +1,6 @@
+# Copy to .dev.vars for `pnpm preview` (Workers runtime, local). Never commit .dev.vars.
+NEXTJS_ENV=development
+BUFFER_CLIENT_ID=
+BUFFER_CLIENT_SECRET=
+SESSION_SECRET=
+APP_URL=https://localhost:8787

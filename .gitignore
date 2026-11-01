@@ -8,3 +8,7 @@ node_modules
 *.tsbuildinfo
 next-env.d.ts
 .cadence
+
+.open-next
+.wrangler
+.dev.vars

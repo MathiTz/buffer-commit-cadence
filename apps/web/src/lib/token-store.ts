@@ -3,6 +3,7 @@ import path from "node:path";
 import type { TokenSet, TokenStore } from "@cadence/buffer-client";
 import { seal, unseal } from "./crypto";
 import { sessionSecret } from "./env";
+import { d1TokenStore, type D1Like } from "./d1-token-store";
 import { pgTokenStore } from "./pg-token-store";
 
 type Book = Record<string, TokenSet>;
@@ -40,20 +41,36 @@ export function fileTokenStore(): TokenStore {
   };
 }
 
-function choose(): TokenStore {
+// The D1 binding, when running on Cloudflare (or `next dev` with bindings initialised); null elsewhere.
+async function cloudflareDb(): Promise<D1Like | null> {
+  try {
+    const { getCloudflareContext } = await import("@opennextjs/cloudflare");
+    const env = (await getCloudflareContext({ async: true })).env as { DB?: D1Like };
+    return env.DB ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function choose(): Promise<TokenStore> {
+  const db = await cloudflareDb();
+  if (db) return d1TokenStore(db);
   if (process.env.DATABASE_URL) return pgTokenStore(process.env.DATABASE_URL);
   if (process.env.VERCEL) throw new Error("DATABASE_URL is not set. Add a Postgres database and its connection string to this project's env vars.");
   return fileTokenStore();
 }
 
-/** Postgres when DATABASE_URL is set, the sealed local file otherwise. Chosen on first use, not at import. */
+/** D1 on Cloudflare, Postgres when DATABASE_URL is set, the sealed local file otherwise. Chosen on first use, not at import. */
 export function createTokenStore(): TokenStore {
-  let impl: TokenStore | undefined;
+  let impl: Promise<TokenStore> | undefined;
   const store = () => (impl ??= choose());
   return {
-    get: (key) => store().get(key),
-    set: (key, tokens) => store().set(key, tokens),
-    delete: (key) => store().delete(key),
-    lock: (key, fn) => (store().lock ? store().lock!(key, fn) : fn()),
+    get: async (key) => (await store()).get(key),
+    set: async (key, tokens) => (await store()).set(key, tokens),
+    delete: async (key) => (await store()).delete(key),
+    lock: async (key, fn) => {
+      const s = await store();
+      return s.lock ? s.lock(key, fn) : fn();
+    },
   };
 }
