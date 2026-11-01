@@ -7,9 +7,9 @@ const errors: Record<string, string> = {
   token_exchange: "Buffer didn't accept the sign-in. Please try again.",
 };
 
-export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+export default async function Home({ searchParams }: { searchParams: Promise<{ error?: string; deleted?: string }> }) {
   if (await isSignedIn()) redirect("/queue");
-  const { error } = await searchParams;
+  const { error, deleted } = await searchParams;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-xl flex-col justify-center gap-6 px-4">
@@ -17,6 +17,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       <p className="text-[color:var(--muted)]">
         One queue to plan what&apos;s scheduled and turn what you shipped into posts. You approve everything.
       </p>
+      {deleted && <p className="text-sm text-[color:var(--muted)]">Your Cadence data was deleted. Your posts in Buffer are unchanged.</p>}
       {error && <p className="text-sm text-red-700">{errors[error] ?? "Something went wrong."}</p>}
       <a
         href="/api/auth/login"
@@ -24,7 +25,7 @@ export default async function Home({ searchParams }: { searchParams: Promise<{ e
       >
         Sign in with Buffer
       </a>
-      <p className="text-xs text-[color:var(--muted)]">Built on the Buffer API. Not an official Buffer product.</p>
+      <p className="text-xs text-[color:var(--muted)]">Built on the Buffer API. Not an official Buffer product. <a href="/privacy" className="underline">What Cadence keeps</a></p>
     </main>
   );
 }

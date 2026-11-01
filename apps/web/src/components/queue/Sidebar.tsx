@@ -118,6 +118,22 @@ export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, pos
             }}><button className="hover:underline">Sign out</button></form>
           </div>
         )}
+        {open && (
+          <div className="mt-2 flex items-center justify-between text-xs text-[#6B6965]">
+            <a href="/privacy" className="hover:underline">What Cadence keeps</a>
+            <form
+              action="/api/auth/delete"
+              method="post"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!window.confirm("Delete your Cadence data? This signs you out and erases the stored tokens and saved views. Your posts in Buffer are not touched.")) return;
+                const form = e.currentTarget;
+                try { localStorage.removeItem("cadence.githubRepo"); } catch { /* nothing stored */ }
+                void clearSnapshots().finally(() => form.submit());
+              }}
+            ><button className="hover:underline">Delete my data</button></form>
+          </div>
+        )}
       </div>
     </aside>
   );
