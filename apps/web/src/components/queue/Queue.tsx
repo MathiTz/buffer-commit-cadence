@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { TAGS, draftPosts, pickSlot, tagBalance, weekStart, zonedParts, zonedToUtc, type GapDef, type Idea, type Post, type PublishMode, type QueueData, type Release, type Tag } from "@cadence/core";
-import { approvePost, loadReleases, prefetchWeek, saveIdea, setPostTag, undoPost } from "@/app/queue/actions";
+import { approvePost, loadReleases, prefetchWeek, refreshQueue, saveIdea, setPostTag, undoPost } from "@/app/queue/actions";
 import { Calendar } from "./Calendar";
 import { ChannelCards } from "./ChannelCards";
 import { BalanceModal, EventModal, GapsModal, GithubModal, IdeaModal } from "./Modals";
@@ -31,6 +31,21 @@ function NavLink({ href, label, children, className }: { href?: string; label?: 
 export function Queue({ data }: { data: QueueData }) {
   const { days, live } = data;
   const router = useRouter();
+  const awaitingChannel = useRef(false); // set when the user left to add a channel in Buffer
+  useEffect(() => {
+    // Coming back from Buffer after "Add a channel": drop the cached snapshot and reload once.
+    const back = () => {
+      if (!awaitingChannel.current || document.visibilityState !== "visible") return;
+      awaitingChannel.current = false;
+      void refreshQueue().then((r) => { if (r.ok) router.refresh(); });
+    };
+    document.addEventListener("visibilitychange", back);
+    window.addEventListener("focus", back);
+    return () => {
+      document.removeEventListener("visibilitychange", back);
+      window.removeEventListener("focus", back);
+    };
+  }, [router]);
   const [day, setDay] = useState(data.selectedDay);
   const [scope, setScope] = useState<"day" | "week">("day");
   const [reviewOnly, setReviewOnly] = useState(false);
@@ -214,6 +229,7 @@ export function Queue({ data }: { data: QueueData }) {
         visiblePosts={posts}
         usage={data.usage}
         live={live}
+        onAddChannel={() => { awaitingChannel.current = true; }}
       />
 
       <main className="min-w-0 px-7 pb-10" style={{ flex: "999 1 680px" }}>

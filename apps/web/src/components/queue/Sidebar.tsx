@@ -13,9 +13,10 @@ interface Props {
   visiblePosts: Post[]; // posts of visible channels, for per-tag counts
   usage: QueueData["usage"];
   live: boolean;
+  onAddChannel: () => void; // the user is leaving to add a channel in Buffer; refresh when they return
 }
 
-export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, posts, visiblePosts, usage, live }: Props) {
+export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, posts, visiblePosts, usage, live, onAddChannel }: Props) {
   const justify = open ? "justify-between" : "justify-center";
   const tags = TAG_ORDER.map((tag) => ({ tag, n: visiblePosts.filter((p) => p.tag === tag).length })).filter((t) => t.tag !== "untagged" || t.n > 0);
 
@@ -69,11 +70,12 @@ export function Sidebar({ open, onToggle, channels, hidden, onToggleChannel, pos
             href="https://publish.buffer.com"
             target="_blank"
             rel="noreferrer"
-            aria-label="Connect a channel in Buffer"
-            title="Connect a channel in Buffer"
+            onClick={onAddChannel}
+            aria-label="Add a channel in Buffer (opens a new tab)"
+            title="Channels are added in Buffer. Come back here and Cadence refreshes."
             className={`mt-1 flex items-center gap-2 rounded-md border border-dashed border-[#CBC9C5] px-2 py-1.5 text-[13px] text-[#6B6965] ${justify}`}
           >
-            +{open && <span>Connect a channel</span>}
+            +{open && <span>Add a channel in Buffer</span>}
           </a>
         </div>
       </div>

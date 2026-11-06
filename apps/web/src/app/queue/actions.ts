@@ -20,6 +20,14 @@ const explain = (e: unknown) =>
     ? "Buffer's request limit is reached. Try again in a few minutes."
     : e instanceof Error ? e.message : "Something went wrong talking to Buffer.";
 
+/** Forgets the cached snapshots so the next load asks Buffer again, e.g. after a channel was added in Buffer. */
+export async function refreshQueue(): Promise<ActionResult<null>> {
+  const s = await session();
+  if (!s) return fail("You're signed out. Sign in again.");
+  invalidate(`${s.sid}:queue`);
+  return { ok: true, value: null };
+}
+
 export interface ApproveInput {
   channelId: string;
   service: string; // the channel's Buffer service, which decides how mentions are written
